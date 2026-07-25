@@ -1,4 +1,4 @@
-# MemoryOS v1.0.0 — Performance Baseline
+# NYXUS AI v1.0.0 — Performance Baseline
 
 Measured 2026-07-20, running from source on the primary development machine
 (many-core desktop CPU), against the real 131-file test corpus (`all test

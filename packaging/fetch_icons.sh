@@ -41,9 +41,9 @@ for entry in "${ICONS[@]}"; do
     exit 1
   fi
   # Dark variant: recolor the single fill (#212121, dark gray meant for light
-  # backgrounds) to a warm off-white matching the V2 luxury dark theme's text
-  # tone (#F1F5F9), suited to dark backgrounds.
-  sed 's/#212121/#E5E9F0/g' "$light_path" > "$DARK_DIR/${local_name}.svg"
+  # backgrounds) to a warm ivory matching the NYXUS AI dark theme's text
+  # tone (#F2EFE9), suited to dark backgrounds.
+  sed 's/#212121/#F2EFE9/g' "$light_path" > "$DARK_DIR/${local_name}.svg"
   echo "fetched: $local_name"
 done
 

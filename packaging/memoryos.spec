@@ -1,8 +1,8 @@
-# PyInstaller spec for MemoryOS (Sprint 6: prove the app freezes and runs
-# standalone, fully offline). Build with:
+# PyInstaller spec for NYXUS AI (formerly MemoryOS; Sprint 6: prove the app
+# freezes and runs standalone, fully offline). Build with:
 #   .venv\Scripts\pyinstaller packaging\memoryos.spec --noconfirm
 #
-# Produces dist\MemoryOS\ (onedir, not onefile) -- onefile would re-extract
+# Produces dist\NyxusAI\ (onedir, not onefile) -- onefile would re-extract
 # this multi-GB app on every launch, which is slow and pointless for a
 # desktop app that isn't distributed as a single email attachment.
 
@@ -60,7 +60,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="MemoryOS",
+    name="NyxusAI",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -69,7 +69,9 @@ exe = EXE(
     # console from Sprints 6-8 was deliberate for build-and-verify work.
     # memoryos/utils/crash_logging.py (wired in app_main.py) guards against
     # sys.stdout/stderr being None in this mode and logs uncaught exceptions
-    # to %APPDATA%\MemoryOS\crash.log instead of them vanishing silently.
+    # to %APPDATA%\MemoryOS\crash.log instead of them vanishing silently
+    # (that data folder name is intentionally unchanged by the rebrand --
+    # see memoryos/utils/app_paths.py).
     console=False,
     disable_windowed_traceback=False,
     icon=str(PROJECT_ROOT / "packaging" / "app_icon.ico"),
@@ -82,5 +84,5 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=False,
-    name="MemoryOS",
+    name="NyxusAI",
 )

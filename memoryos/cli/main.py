@@ -110,7 +110,7 @@ def print_session_summary(session_stats: SessionStats) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="MemoryOS PoC: semantic file search")
+    parser = argparse.ArgumentParser(description="NYXUS AI PoC: semantic file search")
     parser.add_argument(
         "--root",
         action="append",

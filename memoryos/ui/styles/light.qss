@@ -1,8 +1,11 @@
-/* V2 Sprint 1: luxury light theme -- muted slate/navy palette replacing the
-   old bright #2A82DA everywhere. Layered on top of the app's QPalette (see
-   memoryos/theme.py) -- QSS here adds shape, spacing, and hover-state
-   polish; any widget without an explicit rule below falls back to the
-   palette's colors. */
+/* NYXUS AI rebrand: luxury light theme -- keeps V2 Sprint 1's white/cream
+   neutrals (still fits the brand) but replaces every navy-blue accent
+   (#2F4C74/#3E6089) with the brand's gold (#D4AF37 base for filled
+   elements, #B8860B darker amber for borders/hover states that need
+   contrast directly against a white background). Layered on top of the
+   app's QPalette (see memoryos/theme.py) -- QSS here adds shape, spacing,
+   and hover-state polish; any widget without an explicit rule below falls
+   back to the palette's colors. */
 
 QMainWindow, QWidget {
     background-color: #F8FAFC;
@@ -32,7 +35,7 @@ QLabel#mutedLabel {
 }
 
 QLabel#statusLabelWarning {
-    color: #8A6D1E;
+    color: #9A5B1E;
     font-size: 12px;
     font-weight: 600;
 }
@@ -63,11 +66,11 @@ QLineEdit {
     border: 1px solid #E2E8F0;
     border-radius: 8px;
     padding: 8px 12px;
-    selection-background-color: #2F4C74;
+    selection-background-color: #D4AF37;
 }
 
 QLineEdit:focus {
-    border: 1px solid #2F4C74;
+    border: 1px solid #B8860B;
 }
 
 QPushButton {
@@ -79,7 +82,7 @@ QPushButton {
 
 QPushButton:hover {
     background-color: #EEF2F7;
-    border: 1px solid #3E6089;
+    border: 1px solid #B8860B;
 }
 
 QPushButton:pressed {
@@ -93,14 +96,14 @@ QPushButton:disabled {
 }
 
 QPushButton#primaryButton {
-    background-color: #2F4C74;
-    color: #FFFFFF;
-    border: 1px solid #2F4C74;
+    background-color: #D4AF37;
+    color: #0B132B;
+    border: 1px solid #D4AF37;
     font-weight: 600;
 }
 
 QPushButton#primaryButton:hover {
-    background-color: #3E6089;
+    background-color: #B8860B;
 }
 
 QPushButton#iconButton {
@@ -111,7 +114,7 @@ QPushButton#iconButton {
 }
 
 QPushButton#iconButton:hover {
-    background-color: #EDE7F6;
+    background-color: #E8EAF2;
 }
 
 QPushButton#dangerIconButton {
@@ -132,7 +135,7 @@ QWidget#resultCard {
 }
 
 QWidget#resultCard:hover {
-    border: 1px solid #2F4C74;
+    border: 1px solid #B8860B;
 }
 
 QWidget#emptyState {
@@ -142,7 +145,7 @@ QWidget#emptyState {
 /* V2: search results filter bar -- tokens reused exactly from sectionPanel/
    resultCard (surface/border/radius), mutedLabel (default tab text),
    QPushButton:hover (hover background), and the primary accent (checked
-   tab's underline) -- no new colors introduced. */
+   tab's gold underline) -- no new colors introduced. */
 QWidget#filterBar {
     background-color: #FFFFFF;
     border: 1px solid #E2E8F0;
@@ -164,7 +167,7 @@ QPushButton#filterTab:hover {
 
 QPushButton#filterTab:checked {
     color: #0F172A;
-    border-bottom: 2px solid #2F4C74;
+    border-bottom: 2px solid #D4AF37;
 }
 
 QProgressBar {
@@ -176,7 +179,7 @@ QProgressBar {
 }
 
 QProgressBar::chunk {
-    background-color: #2F4C74;
+    background-color: #D4AF37;
     border-radius: 6px;
 }
 
@@ -211,7 +214,7 @@ QMenuBar {
 }
 
 QMenuBar::item:selected {
-    background-color: #EDE7F6;
+    background-color: #E8EAF2;
     border-radius: 4px;
 }
 
@@ -228,7 +231,7 @@ QMenu::item {
 }
 
 QMenu::item:selected {
-    background-color: #EDE7F6;
+    background-color: #E8EAF2;
 }
 
 QListWidget {
@@ -242,10 +245,10 @@ QListWidget::item {
 }
 
 QListWidget::item:hover {
-    background-color: #EDE7F6;
+    background-color: #E8EAF2;
 }
 
 QListWidget::item:selected {
-    background-color: #EDE7F6;
+    background-color: #E8EAF2;
     color: #0F172A;
 }

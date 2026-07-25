@@ -1,7 +1,8 @@
-"""Sprint 8: one-off build tool (not shipped) generating packaging/app_icon.ico
--- a flat rounded-square icon in the app's own accent blue with a white
-magnifying-glass glyph, echoing the "search" icon already used in the UI
-(memoryos/ui/icons/*/search.svg). Run once; re-run only if the design changes.
+"""Sprint 8, recolored for the NYXUS AI rebrand: one-off build tool (not
+shipped) generating packaging/app_icon.ico -- a flat rounded-square icon in
+the brand's deep navy with a gold magnifying-glass glyph, echoing the
+"search" icon already used in the UI (memoryos/ui/icons/*/search.svg).
+Run once; re-run only if the design changes.
 """
 
 import math
@@ -10,8 +11,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 SIZE = 256
-BG_COLOR = (42, 130, 218, 255)  # #2A82DA, matches the app's accent color
-GLYPH_COLOR = (255, 255, 255, 255)
+BG_COLOR = (11, 19, 43, 255)  # #0B132B, brand deep navy
+GLYPH_COLOR = (212, 175, 55, 255)  # #D4AF37, brand gold
 CORNER_RADIUS = 48
 ICO_SIZES = (256, 128, 64, 48, 32, 16)
 

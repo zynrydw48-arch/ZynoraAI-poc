@@ -2,7 +2,7 @@
 
 ## Fluent UI System Icons
 
-MemoryOS bundles a small, curated set of icons from
+NYXUS AI bundles a small, curated set of icons from
 [Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons)
 (`memoryos/ui/icons/`), used under the MIT License.
 

@@ -1,33 +1,36 @@
-; MemoryOS installer (Sprint 8). Wraps the existing frozen PyInstaller build
-; (dist\MemoryOS\, see memoryos.spec) in a per-user installer -- no admin/UAC
-; prompt required, matching how many modern desktop apps (VS Code's user
-; installer, Discord) ship without a code-signing certificate. Compile with:
+; NYXUS AI installer (formerly MemoryOS; Sprint 8). Wraps the existing frozen
+; PyInstaller build (dist\NyxusAI\, see memoryos.spec) in a per-user installer
+; -- no admin/UAC prompt required, matching how many modern desktop apps
+; (VS Code's user installer, Discord) ship without a code-signing
+; certificate. Compile with:
 ;   "C:\Users\<you>\AppData\Local\Programs\Inno Setup 6\ISCC.exe" packaging\memoryos.iss
 
-#define MyAppName "MemoryOS"
+#define MyAppName "NYXUS AI"
 ; Sprint 9: keep in sync by hand with memoryos/__version__.py's __version__ --
 ; Inno's preprocessor can't import a Python constant, so these are two
 ; separately-hardcoded values, not a shared build-time source of truth.
 #define MyAppVersion "1.1.0"
-#define MyAppPublisher "MemoryOS"
-#define MyAppExeName "MemoryOS.exe"
+#define MyAppPublisher "NYXUS AI"
+#define MyAppExeName "NyxusAI.exe"
 
 [Setup]
-; This GUID must stay constant across every future version so Setup detects
-; upgrades correctly -- never regenerate it for a routine version bump.
+; This GUID must stay constant across every future version (including this
+; rebrand) so Setup detects upgrades correctly -- it identifies the same
+; underlying product across name changes, never regenerate it for a routine
+; version bump or a rename.
 AppId={{2B720FD5-B1CC-462F-80FF-B4B8A5EB8528}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 ; Per-user install (no admin/UAC prompt) -- {userpf} is the per-user
-; equivalent of Program Files, e.g. %LOCALAPPDATA%\Programs\MemoryOS.
+; equivalent of Program Files, e.g. %LOCALAPPDATA%\Programs\NYXUS AI.
 DefaultDirName={userpf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=commandline
 OutputDir=installer_output
-OutputBaseFilename=MemoryOS-Setup-{#MyAppVersion}
+OutputBaseFilename=NyxusAI-Setup-{#MyAppVersion}
 SetupIconFile=app_icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 ; The payload is ~4.5GB of mostly-already-compressed ML binaries -- "normal"
@@ -45,7 +48,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
 
 [Files]
-Source: "..\dist\MemoryOS\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\NyxusAI\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -59,9 +62,11 @@ Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: no
 var
   ShouldDeleteUserData: Boolean;
 
-// MemoryOS keeps its SQLite index/settings/search-history in
+// NYXUS AI keeps its SQLite index/settings/search-history in
 // %APPDATA%\MemoryOS (see memoryos/utils/app_paths.py's get_user_data_dir(),
-// which resolves to exactly this path when frozen) -- entirely outside the
+// which resolves to exactly this path when frozen -- intentionally left as
+// "MemoryOS" internally by the rebrand, since renaming it would relocate
+// every existing user's data with no migration step) -- entirely outside the
 // install directory Setup manages, so it survives a plain uninstall by
 // default. This asks an explicit, opt-in question before ever deleting it.
 //
@@ -88,8 +93,8 @@ begin
     Exit;
 
   Response := MsgBox(
-    'Also permanently delete your MemoryOS search history and file index database?' + #13#10 + #13#10 +
-    'WARNING: this cannot be undone. If you plan to reinstall MemoryOS later, or are ' +
+    'Also permanently delete your NYXUS AI search history and file index database?' + #13#10 + #13#10 +
+    'WARNING: this cannot be undone. If you plan to reinstall NYXUS AI later, or are ' +
     'just upgrading to a new version, choose No to keep your existing search index ' +
     'and history.',
     mbConfirmation, MB_YESNO or MB_DEFBUTTON2

@@ -1,13 +1,13 @@
-/* V2 Sprint 1: luxury dark theme -- deep graphite/slate backgrounds
-   (replacing #202020/#2B2B2B) with a muted navy accent (replacing bright
-   #2A82DA/#4A9AE8). Layered on top of the app's dark QPalette (see
-   memoryos/theme.py) -- QSS here adds shape, spacing, and hover-state
-   polish; any widget without an explicit rule below falls back to the
-   palette's colors. */
+/* NYXUS AI rebrand: luxury dark theme -- deep navy backgrounds/surfaces
+   (#0B0F17/#0B132B) with a gold brand accent (#D4AF37/#E5C158) replacing
+   V2 Sprint 1's muted slate/navy scheme. Layered on top of the app's dark
+   QPalette (see memoryos/theme.py) -- QSS here adds shape, spacing, and
+   hover-state polish; any widget without an explicit rule below falls
+   back to the palette's colors. */
 
 QMainWindow, QWidget {
-    background-color: #0F172A;
-    color: #F1F5F9;
+    background-color: #0B0F17;
+    color: #F2EFE9;
     font-family: "Segoe UI", "Inter", sans-serif;
     font-size: 13px;
 }
@@ -23,17 +23,17 @@ QLabel {
 QLabel#sectionTitle {
     font-size: 17px;
     font-weight: 700;
-    color: #F1F5F9;
+    color: #F2EFE9;
     padding-bottom: 2px;
 }
 
 QLabel#mutedLabel {
-    color: #94A3B8;
+    color: #8B93A8;
     font-size: 12px;
 }
 
 QLabel#statusLabelWarning {
-    color: #D9B65C;
+    color: #C9812E;
     font-size: 12px;
     font-weight: 600;
 }
@@ -45,8 +45,8 @@ QLabel#statusLabelError {
 }
 
 QWidget#sectionPanel {
-    background-color: #1E293B;
-    border: 1px solid #334155;
+    background-color: #0B132B;
+    border: 1px solid #1C2541;
     border-radius: 14px;
 }
 
@@ -60,50 +60,50 @@ QLabel#toastBanner {
 }
 
 QLineEdit {
-    background-color: #1E293B;
-    border: 1px solid #334155;
+    background-color: #0B132B;
+    border: 1px solid #1C2541;
     border-radius: 8px;
     padding: 8px 12px;
-    color: #F1F5F9;
-    selection-background-color: #3D5A82;
+    color: #F2EFE9;
+    selection-background-color: #D4AF37;
 }
 
 QLineEdit:focus {
-    border: 1px solid #4E71A0;
+    border: 1px solid #E5C158;
 }
 
 QPushButton {
-    background-color: #1E293B;
-    border: 1px solid #334155;
+    background-color: #0B132B;
+    border: 1px solid #1C2541;
     border-radius: 8px;
     padding: 8px 18px;
-    color: #F1F5F9;
+    color: #F2EFE9;
 }
 
 QPushButton:hover {
-    background-color: #26344A;
-    border: 1px solid #4E71A0;
+    background-color: #16213A;
+    border: 1px solid #E5C158;
 }
 
 QPushButton:pressed {
-    background-color: #1A2436;
+    background-color: #080D1C;
 }
 
 QPushButton:disabled {
-    color: #64748B;
-    background-color: #16202F;
-    border: 1px solid #263449;
+    color: #5F6B85;
+    background-color: #080B14;
+    border: 1px solid #14192B;
 }
 
 QPushButton#primaryButton {
-    background-color: #3D5A82;
-    color: #FFFFFF;
-    border: 1px solid #3D5A82;
+    background-color: #D4AF37;
+    color: #0B132B;
+    border: 1px solid #D4AF37;
     font-weight: 600;
 }
 
 QPushButton#primaryButton:hover {
-    background-color: #4E71A0;
+    background-color: #E5C158;
 }
 
 QPushButton#iconButton {
@@ -114,7 +114,7 @@ QPushButton#iconButton {
 }
 
 QPushButton#iconButton:hover {
-    background-color: #332B4D;
+    background-color: #1C2541;
 }
 
 QPushButton#dangerIconButton {
@@ -129,13 +129,13 @@ QPushButton#dangerIconButton:hover {
 }
 
 QWidget#resultCard {
-    background-color: #1E293B;
-    border: 1px solid #334155;
+    background-color: #0B132B;
+    border: 1px solid #1C2541;
     border-radius: 14px;
 }
 
 QWidget#resultCard:hover {
-    border: 1px solid #4E71A0;
+    border: 1px solid #E5C158;
 }
 
 QWidget#emptyState {
@@ -145,10 +145,10 @@ QWidget#emptyState {
 /* V2: search results filter bar -- tokens reused exactly from sectionPanel/
    resultCard (surface/border/radius), mutedLabel (default tab text),
    QPushButton:hover (hover background), and the primary accent (checked
-   tab's underline) -- no new colors introduced. */
+   tab's gold underline) -- no new colors introduced. */
 QWidget#filterBar {
-    background-color: #1E293B;
-    border: 1px solid #334155;
+    background-color: #0B132B;
+    border: 1px solid #1C2541;
     border-radius: 14px;
 }
 
@@ -158,28 +158,28 @@ QPushButton#filterTab {
     border-bottom: 2px solid transparent;
     border-radius: 8px;
     padding: 8px 16px;
-    color: #94A3B8;
+    color: #8B93A8;
 }
 
 QPushButton#filterTab:hover {
-    background-color: #26344A;
+    background-color: #16213A;
 }
 
 QPushButton#filterTab:checked {
-    color: #F1F5F9;
-    border-bottom: 2px solid #3D5A82;
+    color: #F2EFE9;
+    border-bottom: 2px solid #D4AF37;
 }
 
 QProgressBar {
     border: none;
     border-radius: 6px;
-    background-color: #334155;
+    background-color: #1C2541;
     height: 12px;
     text-align: center;
 }
 
 QProgressBar::chunk {
-    background-color: #4E71A0;
+    background-color: #D4AF37;
     border-radius: 6px;
 }
 
@@ -195,13 +195,13 @@ QScrollBar:vertical {
 }
 
 QScrollBar::handle:vertical {
-    background: #334155;
+    background: #1C2541;
     border-radius: 5px;
     min-height: 24px;
 }
 
 QScrollBar::handle:vertical:hover {
-    background: #475569;
+    background: #2A3A5C;
 }
 
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
@@ -209,18 +209,18 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
 }
 
 QMenuBar {
-    background-color: #0F172A;
-    border-bottom: 1px solid #334155;
+    background-color: #0B0F17;
+    border-bottom: 1px solid #1C2541;
 }
 
 QMenuBar::item:selected {
-    background-color: #332B4D;
+    background-color: #1C2541;
     border-radius: 4px;
 }
 
 QMenu {
-    background-color: #1E293B;
-    border: 1px solid #334155;
+    background-color: #0B132B;
+    border: 1px solid #1C2541;
     border-radius: 12px;
     padding: 6px;
 }
@@ -228,11 +228,11 @@ QMenu {
 QMenu::item {
     padding: 8px 22px;
     border-radius: 4px;
-    color: #F1F5F9;
+    color: #F2EFE9;
 }
 
 QMenu::item:selected {
-    background-color: #332B4D;
+    background-color: #1C2541;
 }
 
 QListWidget {
@@ -246,10 +246,10 @@ QListWidget::item {
 }
 
 QListWidget::item:hover {
-    background-color: #332B4D;
+    background-color: #1C2541;
 }
 
 QListWidget::item:selected {
-    background-color: #332B4D;
-    color: #F1F5F9;
+    background-color: #1C2541;
+    color: #F2EFE9;
 }

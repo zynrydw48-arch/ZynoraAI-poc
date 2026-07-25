@@ -1,6 +1,6 @@
-# MemoryOS v1.0.0 — Final Release Document
+# NYXUS AI v1.0.0 — Final Release Document
 
-Prepared 2026-07-20. This is the authoritative release record for MemoryOS
+Prepared 2026-07-20. This is the authoritative release record for NYXUS AI
 v1.0.0: what shipped, how it's built, its measured performance (from both
 the Sprint 9 baseline and the Sprint-9.5-adjacent large-scale stress test),
 its known limitations, and the V2 roadmap. **As of this release, V1 is
@@ -31,7 +31,7 @@ belongs to V2.**
 - **Search history**: recent searches shown in a dedicated panel, re-runnable
   with a double-click, clearable, entirely local (never transmitted).
 - **Theming**: Light, Dark, and System (follows the OS theme live).
-- **Version + About**: Help > About MemoryOS shows the current version and
+- **Version + About**: Help > About NYXUS AI shows the current version and
   third-party attributions.
 - **Crash logging**: uncaught exceptions in the frozen, windowed build are
   written to `%APPDATA%\MemoryOS\crash.log` instead of being silently lost.
@@ -67,7 +67,7 @@ belongs to V2.**
   V2 consideration at much larger scale).
 - **Background health**: `ResourceMonitor` + `PowerStateProvider`
   (`memoryos/background/`) sample system CPU/RAM/battery/fullscreen state and
-  attribute CPU usage correctly (excluding MemoryOS's own indexing load) to
+  attribute CPU usage correctly (excluding NYXUS AI's own indexing load) to
   decide when to auto-pause.
 - **Packaging**: PyInstaller onedir build (`packaging/memoryos.spec`,
   windowed/`console=False`, offline model cache bundled) wrapped in an Inno
@@ -316,12 +316,12 @@ a runtime dependency).
 | Test files | 11 |
 | Lines of test code | 1,385 |
 | Total tests | 92 (all passing) |
-| Frozen build size (`dist/MemoryOS/`) | ~4.5 GB (bundles Python runtime, Tesseract, and all model weights for fully offline operation) |
+| Frozen build size (`dist/NyxusAI/`) | ~4.5 GB (bundles Python runtime, Tesseract, and all model weights for fully offline operation) |
 | Installer size | ~3.23 GB (3,231,113,249 bytes) |
 
 ## 9. Installer checksum
 
-`packaging/installer_output/MemoryOS-Setup-1.0.0.exe`:
+`packaging/installer_output/NyxusAI-Setup-1.0.0.exe`:
 
 ```
 SHA256: c50c33c728d01a0429d2541cd95318c56373d4724ff89d76f3e1c7b5e65f0ea3
