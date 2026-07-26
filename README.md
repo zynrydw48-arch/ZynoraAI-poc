@@ -11,7 +11,7 @@ retired (still deferred, not yet scheduled).
 
 ## Install (recommended)
 
-Download `packaging/installer_output/MemoryOS-Setup-1.0.0.exe` and run it —
+Download `packaging/installer_output/NyxusAI-Setup-1.0.0.exe` and run it —
 no admin rights needed, installs to your own user profile
 (`%LOCALAPPDATA%\Programs\MemoryOS`), with Start Menu and optional Desktop
 shortcuts. Windows SmartScreen will show an "unknown publisher" warning on
