@@ -1,5 +1,5 @@
-# Nyxus-AI
-[Download NyxusAI for Windows (EXE Installer)](https://mega.nz/file/jDQihIKQ#iSUErrzK15oa_dqxh1DiEigkQw8sEYURm-89TCi1u7E)
+# Zynora-AI
+[Download Zynora-AI for Windows (EXE Installer)](https://mega.nz/file/jDQihIKQ#iSUErrzK15oa_dqxh1DiEigkQw8sEYURm-89TCi1u7E)
 Semantic search over local files by natural-language description, not filename.
 
 v1.0.0 — the V1 desktop app is feature-complete: a redesigned UI, background
@@ -11,7 +11,7 @@ retired (still deferred, not yet scheduled).
 
 ## Install (recommended)
 
-Download `packaging/installer_output/NyxusAI-Setup-1.0.0.exe` and run it —
+Download `packaging/installer_output/Zynora-AI-Setup-1.0.0.exe` and run it —
 no admin rights needed, installs to your own user profile
 (`%LOCALAPPDATA%\Programs\MemoryOS`), with Start Menu and optional Desktop
 shortcuts. Windows SmartScreen will show an "unknown publisher" warning on
@@ -40,7 +40,7 @@ python -m venv .venv
 ### Run: desktop app
 
 ```
-.venv\Scripts\python -m memoryos.app_main
+.venv\Scripts\python -m Zynora-AI.app_main
 ```
 
 Pick a folder, click Start Indexing, then search — indexing runs in the
@@ -83,17 +83,17 @@ it in a Windows installer:
 
 ```
 .venv\Scripts\python packaging\prepare_offline_cache.py
-.venv\Scripts\pyinstaller packaging\memoryos.spec --noconfirm
+.venv\Scripts\pyinstaller packaging\Zynora-AI.spec --noconfirm
 "<path to Inno Setup 6>\ISCC.exe" packaging\memoryos.iss
 ```
 
-The frozen `dist/MemoryOS/MemoryOS.exe` runs standalone (verified by copying
+The frozen `dist/Zynora-AI/Zynora-AI.exe` runs standalone (verified by copying
 it to a machine/location with no Python, no venv, and no system Tesseract
 install) and windowed (no console — uncaught errors are logged to
 `%APPDATA%\MemoryOS\crash.log` instead of a visible console). Its database
-lives in `%APPDATA%\MemoryOS\memoryos.sqlite3`, separate from both the dev
+lives in `%APPDATA%\Zynora-AI\Zynora-AI.sqlite3`, separate from both the dev
 app's `.memoryos/` and the CLI's `.index/`. See `RELEASE_CHECKLIST.md` before
-cutting a new release, and keep `memoryos/__version__.py` and
+cutting a new release, and keep `Zynora-AI/__version__.py` and
 `packaging/memoryos.iss`'s `MyAppVersion` in sync on every version bump.
 
 There's no code-signing certificate yet, so both the installer and the
