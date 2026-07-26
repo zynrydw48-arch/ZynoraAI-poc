@@ -1,5 +1,5 @@
-# MemoryOS
-[Download MemoryOS for Windows (EXE Installer)](https://mega.nz/file/jDQihIKQ#iSUErrzK15oa_dqxh1DiEigkQw8sEYURm-89TCi1u7E)
+# Nyxus-AI
+[Download NyxusAI for Windows (EXE Installer)](https://mega.nz/file/jDQihIKQ#iSUErrzK15oa_dqxh1DiEigkQw8sEYURm-89TCi1u7E)
 Semantic search over local files by natural-language description, not filename.
 
 v1.0.0 — the V1 desktop app is feature-complete: a redesigned UI, background
