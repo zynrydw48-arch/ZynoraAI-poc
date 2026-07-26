@@ -376,6 +376,6 @@ def test_about_action_shows_version_and_attribution(window, monkeypatch):
 
     assert len(calls) == 1
     title, text = calls[0]
-    assert title == "About NYXUS AI"
+    assert title == "About Zynora AI"
     assert __version__ in text
     assert "Fluent UI System Icons" in text

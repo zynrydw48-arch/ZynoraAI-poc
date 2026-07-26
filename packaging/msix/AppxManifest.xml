@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MSIX manifest for Zynora AI (Desktop Bridge / Win32-in-MSIX packaging, for
+  Microsoft Partner Center submission; the exe/iss installer is a separate,
+  existing distribution channel, unrelated to this file).
+
+  Identity Name/Publisher below are the exact values reserved for this app
+  in Partner Center (Product management, Product identity); these MUST
+  match exactly or Partner Center will reject the upload. Version is padded
+  to the required 4-part numeric form to match memoryos/__version__.py's
+  "1.1.0". Keep both in sync by hand on every version bump, same as the
+  existing memoryos.iss/__version__.py pattern.
+
+  Identity/Name intentionally stays "NYXUSAI.NYXUSAI" across the Zynora AI
+  rebrand, confirmed with the user 2026-07-26: this is a rename of the
+  existing Partner Center app entry (not a new product registration), so the
+  reserved Package Identity Name stays permanent while DisplayName below
+  carries the new public branding.
+
+  PublisherDisplayName below is "NYXUS AI", not "Zynora AI", confirmed by
+  an actual Partner Center validation rejection 2026-07-26 ("PublisherDisplayName
+  ... doesn't match your publisher display name: NYXUS AI"). This is the
+  account-level publisher name registered in Partner Center, independent of
+  any individual app's DisplayName, and must match it exactly regardless of
+  which app is being submitted.
+
+  Properties/DisplayName below is "Zynora" (no "AI"), confirmed by a second
+  Partner Center validation rejection 2026-07-26: the reserved app title in
+  Partner Center is strictly "Zynora". Note this only touches
+  Package/Properties/DisplayName (the Store listing title); the
+  Applications/Application/uap:VisualElements DisplayName further down
+  (the Start-tile/taskbar label) was left as "Zynora AI" since Partner
+  Center's rejections have only ever cited the Properties element; revisit
+  if a future validation pass flags that one too.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+
+  <Identity
+    Name="NYXUSAI.NYXUSAI"
+    Publisher="CN=DEF1507C-2728-42FE-B1E8-A56EB3681DC6"
+    Version="1.1.0.0"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Zynora</DisplayName>
+    <PublisherDisplayName>NYXUS AI</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="ZynoraAI" Executable="ZynoraAI.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="Zynora AI"
+        Description="Semantic search over local files by natural-language description, not filename."
+        BackgroundColor="#070709"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" Square310x310Logo="Assets\Square310x310Logo.png" />
+        <uap:SplashScreen Image="Assets\SplashScreen.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

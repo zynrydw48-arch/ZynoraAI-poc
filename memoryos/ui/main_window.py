@@ -74,7 +74,7 @@ class MainWindow(QMainWindow):
         original_style_name: str | None = None,
     ):
         super().__init__()
-        self.setWindowTitle("NYXUS AI")
+        self.setWindowTitle("Zynora AI")
         self.resize(1000, 650)
 
         self._embedding_provider = embedding_provider
@@ -271,15 +271,15 @@ class MainWindow(QMainWindow):
             theme_menu.addAction(action)
 
         help_menu = self.menuBar().addMenu("Help")
-        about_action = QAction("About NYXUS AI", self)
+        about_action = QAction("About Zynora AI", self)
         about_action.triggered.connect(self._on_about)
         help_menu.addAction(about_action)
 
     def _on_about(self) -> None:
         QMessageBox.about(
             self,
-            "About NYXUS AI",
-            f"<b>NYXUS AI</b> version {__version__}"
+            "About Zynora AI",
+            f"<b>Zynora AI</b> version {__version__}"
             "<p>Semantic search over local files by natural-language "
             "description, not filename.</p>"
             "<p>Icons: <a href=\"https://github.com/microsoft/fluentui-system-icons\">"

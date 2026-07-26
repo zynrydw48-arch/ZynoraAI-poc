@@ -1,8 +1,8 @@
-# PyInstaller spec for NYXUS AI (formerly MemoryOS; Sprint 6: prove the app
-# freezes and runs standalone, fully offline). Build with:
+# PyInstaller spec for Zynora AI (formerly MemoryOS/NYXUS AI; Sprint 6: prove
+# the app freezes and runs standalone, fully offline). Build with:
 #   .venv\Scripts\pyinstaller packaging\memoryos.spec --noconfirm
 #
-# Produces dist\NyxusAI\ (onedir, not onefile) -- onefile would re-extract
+# Produces dist\ZynoraAI\ (onedir, not onefile) -- onefile would re-extract
 # this multi-GB app on every launch, which is slow and pointless for a
 # desktop app that isn't distributed as a single email attachment.
 
@@ -60,7 +60,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="NyxusAI",
+    name="ZynoraAI",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -84,5 +84,5 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=False,
-    name="NyxusAI",
+    name="ZynoraAI",
 )

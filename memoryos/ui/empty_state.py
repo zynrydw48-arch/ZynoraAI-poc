@@ -36,7 +36,7 @@ class EmptyState(QWidget):
         layout.addWidget(title_label)
 
         subtitle_label = QLabel(
-            "Choose a folder to index, and NYXUS AI will let you find files\n"
+            "Choose a folder to index, and Zynora AI will let you find files\n"
             "by describing what you remember about them."
         )
         subtitle_label.setObjectName("mutedLabel")

@@ -1,51 +1,36 @@
-"""Sprint 8, recolored for the NYXUS AI rebrand: one-off build tool (not
-shipped) generating packaging/app_icon.ico -- a flat rounded-square icon in
-the brand's deep navy with a gold magnifying-glass glyph, echoing the
-"search" icon already used in the UI (memoryos/ui/icons/*/search.svg).
-Run once; re-run only if the design changes.
+"""Zynora AI rebrand: one-off build tool (not shipped) generating
+packaging/app_icon.ico from the real brand mark in packaging/zynora_logo.png
+(the marketing lockup: "Z" glyph + ZYNORA wordmark + tagline on black).
+Crops just the glyph, centers it on a plain square matching the source
+image's own near-black background, and exports the standard ICO size set.
+Run once; re-run only if packaging/zynora_logo.png changes.
 """
 
-import math
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image
 
-SIZE = 256
-BG_COLOR = (11, 19, 43, 255)  # #0B132B, brand deep navy
-GLYPH_COLOR = (212, 175, 55, 255)  # #D4AF37, brand gold
-CORNER_RADIUS = 48
+SOURCE_LOGO = Path(__file__).resolve().parent / "zynora_logo.png"
+
+# Bounding box of the "Z" glyph within the source lockup image (excludes the
+# ZYNORA wordmark and tagline below it), found via brightness thresholding
+# (glyph gold/glossy-highlight pixels are far brighter than the near-black
+# background) with ~8% padding added on each side.
+GLYPH_CROP_BOX = (300, 198, 960, 858)
+
+BG_COLOR = (7, 7, 9, 255)  # sampled from the source image's own background
 ICO_SIZES = (256, 128, 64, 48, 32, 16)
 
 
 def build_base_image() -> Image.Image:
-    img = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    draw.rounded_rectangle([0, 0, SIZE - 1, SIZE - 1], radius=CORNER_RADIUS, fill=BG_COLOR)
+    source = Image.open(SOURCE_LOGO).convert("RGBA")
+    glyph = source.crop(GLYPH_CROP_BOX)
 
-    circle_center = (108, 108)
-    circle_radius = 52
-    stroke_width = 22
-
-    bbox = [
-        circle_center[0] - circle_radius,
-        circle_center[1] - circle_radius,
-        circle_center[0] + circle_radius,
-        circle_center[1] + circle_radius,
-    ]
-    draw.ellipse(bbox, outline=GLYPH_COLOR, width=stroke_width)
-
-    angle = math.radians(45)
-    start_radius = circle_radius + stroke_width / 2 - 4
-    start_x = circle_center[0] + start_radius * math.cos(angle)
-    start_y = circle_center[1] + start_radius * math.sin(angle)
-    end_x, end_y = 205, 205
-    draw.line([start_x, start_y, end_x, end_y], fill=GLYPH_COLOR, width=stroke_width)
-
-    # Round the handle's far end so it doesn't look chopped off.
-    r = stroke_width / 2
-    draw.ellipse([end_x - r, end_y - r, end_x + r, end_y + r], fill=GLYPH_COLOR)
-
-    return img
+    size = max(glyph.width, glyph.height)
+    canvas = Image.new("RGBA", (size, size), BG_COLOR)
+    offset = ((size - glyph.width) // 2, (size - glyph.height) // 2)
+    canvas.alpha_composite(glyph, offset)
+    return canvas.resize((256, 256), Image.LANCZOS)
 
 
 def main() -> None:

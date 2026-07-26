@@ -1,5 +1,5 @@
 """Build-time script (not shipped app code): downloads exactly the models
-NYXUS AI actually uses into a clean, dedicated cache directory for
+Zynora AI actually uses into a clean, dedicated cache directory for
 PyInstaller to bundle -- deliberately NOT the dev machine's real
 ~/.cache/huggingface or ~/.cache/torch, which have accumulated ~2.5GB of
 stale models from earlier PoC experimentation (plain all-MiniLM-L6-v2,

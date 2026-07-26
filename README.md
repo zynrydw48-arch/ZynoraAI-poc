@@ -1,5 +1,4 @@
-# NYXUS AI
-[Download NYXUS AI for Windows (EXE Installer)](https://drive.google.com/file/d/1yhwD5fnVljoQeeShd4OAYnkGsay01jrE/view?usp=drive_link)
+# Zynora AI
 Semantic search over local files by natural-language description, not filename.
 
 v1.0.0 — the V1 desktop app is feature-complete: a redesigned UI, background
@@ -11,9 +10,9 @@ retired (still deferred, not yet scheduled).
 
 ## Install (recommended)
 
-Download `packaging/installer_output/NyxusAI-Setup-1.0.0.exe` and run it —
+Download `packaging/installer_output/ZynoraAI-Setup-1.1.0.exe` and run it —
 no admin rights needed, installs to your own user profile
-(`%LOCALAPPDATA%\Programs\NYXUS AI`), with Start Menu and optional Desktop
+(`%LOCALAPPDATA%\Programs\Zynora AI`), with Start Menu and optional Desktop
 shortcuts. Windows SmartScreen will show an "unknown publisher" warning on
 first run (no code-signing certificate yet) — choose "More info" → "Run
 anyway" if you trust the source you got it from.
@@ -56,7 +55,7 @@ Every result card has inline Open/Reveal in Folder/Copy Path/Rename/Delete
 actions (also available via right-click) — Delete moves to the Recycle Bin,
 never a permanent delete, and the index updates immediately. The Settings >
 Theme menu switches between Light, Dark, and System (follows the OS theme
-live); Help > About NYXUS AI shows the current version. Data lives in
+live); Help > About Zynora AI shows the current version. Data lives in
 `.memoryos/memoryos.sqlite3` when run from source (`%APPDATA%\MemoryOS\` when
 installed/frozen).
 
@@ -76,7 +75,7 @@ Scans and indexes the project directory recursively (supported types: jpg/jpeg/p
 
 ## Building the frozen app + installer
 
-Produces an offline-capable folder (`dist/NyxusAI/`, ~4.5GB — bundles the
+Produces an offline-capable folder (`dist/ZynoraAI/`, ~4.5GB — bundles the
 Python runtime, Tesseract, and all model weights so nothing needs to be
 installed or downloaded separately, including on first run) and then wraps
 it in a Windows installer:
@@ -87,7 +86,7 @@ it in a Windows installer:
 "<path to Inno Setup 6>\ISCC.exe" packaging\memoryos.iss
 ```
 
-The frozen `dist/NyxusAI/NyxusAI.exe` runs standalone (verified by copying
+The frozen `dist/ZynoraAI/ZynoraAI.exe` runs standalone (verified by copying
 it to a machine/location with no Python, no venv, and no system Tesseract
 install) and windowed (no console — uncaught errors are logged to
 `%APPDATA%\MemoryOS\crash.log` instead of a visible console). Its database
