@@ -6,6 +6,7 @@ ML models needed, matching the FakeEmbeddingProvider pattern already used in
 tests/test_main_window.py.
 """
 
+import os
 import threading
 import time
 from pathlib import Path
@@ -234,5 +235,83 @@ def test_default_call_with_no_events_still_works(tmp_path):
         stats = indexer.index_files(files)
         assert stats.indexed == 5
         assert stats.errors == []
+    finally:
+        database.close()
+
+
+def test_eml_file_is_indexed_and_searchable_end_to_end(tmp_path):
+    """Email Search Integration Phase 1: exercises the full real pipeline
+    (ScannedFile -> indexing.py's EMAIL dispatch branch -> extract_email ->
+    embedding -> Database storage) rather than just the extractor in
+    isolation (see tests/test_extractors.py) -- this is what actually proves
+    the new dispatch wiring in memoryos/indexing.py works end to end."""
+    from email.message import EmailMessage
+
+    msg = EmailMessage()
+    msg["Subject"] = "Coffee Export Contract"
+    msg["From"] = "supplier@example.com"
+    msg["To"] = "buyer@example.com"
+    msg.set_content("Attached is the signed contract for the Q3 green coffee export.")
+    eml_path = tmp_path / "contract.eml"
+    eml_path.write_bytes(bytes(msg))
+
+    scanned = ScannedFile(
+        path=eml_path,
+        filename=eml_path.name,
+        extension=".eml",
+        file_type="email",
+        mtime=eml_path.stat().st_mtime,
+        size_bytes=eml_path.stat().st_size,
+    )
+
+    database = _database(tmp_path)
+    try:
+        indexer = DatabaseIndexer(FakeEmbeddingProvider(), None, SlowFakeVisionPipeline(0.0), database)
+        results = list(indexer.iter_index_files([scanned]))
+
+        assert len(results) == 1
+        assert results[0].outcome == "indexed"
+
+        record = database.get_by_path(str(eml_path))
+        assert record is not None
+        assert "Coffee Export Contract" in record.semantic_text
+        assert record.metadata["structural"]["email_subject"] == "Coffee Export Contract"
+        assert "supplier@example.com" in record.metadata["structural"]["email_sender"]
+        assert "Coffee Export Contract" in record.metadata["text_snippet"]
+    finally:
+        database.close()
+
+
+def test_unchanged_files_skip_via_bulk_mtime_check_not_reprocessed(tmp_path):
+    """Performance-pass regression: the unchanged-file pre-check now does one
+    bulk Database.all_mtimes() fetch instead of one get_by_path() per file --
+    confirms it still correctly identifies unchanged files (same mtime) as
+    "unchanged" and changed files (different mtime) as needing reprocessing."""
+    files = _make_image_files(tmp_path, 6)
+    database = _database(tmp_path)
+    try:
+        indexer = DatabaseIndexer(
+            FakeEmbeddingProvider(), None, SlowFakeVisionPipeline(0.0), database
+        )
+        first_pass = list(indexer.iter_index_files(files))
+        assert all(r.outcome == "indexed" for r in first_pass)
+
+        # Bump one file's mtime to simulate a real edit; the rest are untouched.
+        new_mtime = files[0].mtime + 100
+        os.utime(files[0].path, (new_mtime, new_mtime))
+        files[0] = ScannedFile(
+            path=files[0].path,
+            filename=files[0].filename,
+            extension=files[0].extension,
+            file_type=files[0].file_type,
+            mtime=new_mtime,
+            size_bytes=files[0].size_bytes,
+        )
+
+        second_pass = list(indexer.iter_index_files(files))
+        outcomes = {str(r.scanned_file.path): r.outcome for r in second_pass}
+        assert outcomes[str(files[0].path)] == "indexed"
+        for scanned in files[1:]:
+            assert outcomes[str(scanned.path)] == "unchanged"
     finally:
         database.close()

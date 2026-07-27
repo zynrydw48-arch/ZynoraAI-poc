@@ -21,13 +21,14 @@ from PIL import Image
 from memoryos.database.db import Database, FileRecord as DbFileRecord
 from memoryos.embeddings.provider import EmbeddingProvider
 from memoryos.extractors.docx_extractor import extract_docx
+from memoryos.extractors.email_extractor import extract_email
 from memoryos.extractors.pdf_extractor import extract_pdf
 from memoryos.extractors.pptx_extractor import extract_pptx
 from memoryos.extractors.xlsx_extractor import extract_xlsx
 from memoryos.index.store import IndexRecord, IndexStore
 from memoryos.ocr.engine import OcrEngine
 from memoryos.scanner.discover import ScannedFile
-from memoryos.utils.extensions import DOCX, IMAGE, PDF, PPTX, XLSX
+from memoryos.utils.extensions import DOCX, EMAIL, IMAGE, PDF, PPTX, XLSX
 from memoryos.utils.thread_priority import set_current_thread_background_priority
 from memoryos.vision.pipeline import VisionPipeline, VisionResult
 
@@ -129,6 +130,9 @@ def build_semantic_text_and_metadata(
         metadata["structural"] = result.structural_metadata
     elif scanned.file_type == XLSX:
         result = extract_xlsx(scanned.path)
+        metadata["structural"] = result.structural_metadata
+    elif scanned.file_type == EMAIL:
+        result = extract_email(scanned.path)
         metadata["structural"] = result.structural_metadata
     else:
         raise ValueError(f"Unhandled file type: {scanned.file_type}")
@@ -290,13 +294,19 @@ class DatabaseIndexer:
         Does not prune missing files or record perf_log -- callers that want
         the Sprint 1 one-shot behavior should use index_files() below instead.
         """
+        # Sprint 10 (performance pass): one bulk fetch instead of one
+        # get_by_path() round-trip (with a full metadata JSON decode) per
+        # file -- for a mostly-unchanged incremental reindex, this turns N
+        # SQLite queries into 1 plus N cheap dict lookups.
+        existing_by_path = self._database.all_mtimes()
+
         to_process: list[tuple[ScannedFile, str | None]] = []
         for scanned in scanned_files:
-            existing = self._database.get_by_path(str(scanned.path))
-            if existing is not None and existing.mtime == scanned.mtime:
+            existing = existing_by_path.get(str(scanned.path))
+            if existing is not None and existing[1] == scanned.mtime:
                 yield FileIndexProgress(scanned_file=scanned, outcome="unchanged")
             else:
-                to_process.append((scanned, existing.id if existing else None))
+                to_process.append((scanned, existing[0] if existing else None))
 
         if not to_process:
             return
@@ -336,6 +346,9 @@ class DatabaseIndexer:
             return results
 
         embeddings = self._embedding_provider.encode([item.semantic_text for item in successes])
+        # One batched upsert (one transaction/commit) for the whole batch
+        # instead of a per-file commit -- avoids a disk sync per file.
+        to_upsert = []
         for item, embedding in zip(successes, embeddings):
             record = DbFileRecord(
                 id=item.existing_id or str(uuid.uuid4()),
@@ -348,8 +361,9 @@ class DatabaseIndexer:
                 mtime=item.scanned_file.mtime,
                 indexed_at=time.time(),
             )
-            self._database.upsert_file(record, embedding)
+            to_upsert.append((record, embedding))
             results.append(FileIndexProgress(scanned_file=item.scanned_file, outcome="indexed"))
+        self._database.upsert_files(to_upsert)
         return results
 
     def _process_in_parallel(

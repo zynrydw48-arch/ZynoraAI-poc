@@ -15,7 +15,7 @@ TAB_LABELS = ["All", "Images", "Web", "Files", "Notes", "More..."]
 # empty state for every corpus this app can actually build today.
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".bmp"}
 WEB_EXTENSIONS = {".html", ".htm", ".url"}
-FILE_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".pptx", ".zip", ".txt", ".csv"}
+FILE_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".pptx", ".zip", ".txt", ".csv", ".eml", ".msg"}
 NOTE_EXTENSIONS = {".md", ".markdown", ".norg", ".org"}
 
 

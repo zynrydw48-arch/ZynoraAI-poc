@@ -8,6 +8,7 @@ PDF = "pdf"
 PPTX = "pptx"
 DOCX = "docx"
 XLSX = "xlsx"
+EMAIL = "email"
 
 EXTENSION_TO_TYPE = {
     ".jpg": IMAGE,
@@ -19,6 +20,8 @@ EXTENSION_TO_TYPE = {
     ".pptx": PPTX,
     ".docx": DOCX,
     ".xlsx": XLSX,
+    ".eml": EMAIL,
+    ".msg": EMAIL,
 }
 
 # Extensions the spec lists as in-scope but that our chosen libraries can't

@@ -13,6 +13,17 @@ def rank_by_similarity(
     Assumes embeddings and query_embedding are already L2-normalized, so the dot
     product is the cosine similarity."""
     similarities = embeddings @ query_embedding
-    top_k = min(top_k, len(similarities))
-    top_indices = np.argsort(-similarities)[:top_k]
+    n = len(similarities)
+    top_k = min(top_k, n)
+
+    if top_k == n:
+        top_indices = np.argsort(-similarities)
+    else:
+        # Performance pass: argsort sorts all n rows just to keep the first
+        # top_k -- argpartition only guarantees the top_k end up (unordered)
+        # in the first top_k slots in O(n) rather than O(n log n), then only
+        # that small slice needs a real sort.
+        unordered = np.argpartition(-similarities, top_k - 1)[:top_k]
+        top_indices = unordered[np.argsort(-similarities[unordered])]
+
     return [(int(idx), float(similarities[idx])) for idx in top_indices]

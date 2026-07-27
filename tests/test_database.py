@@ -198,3 +198,119 @@ def test_set_setting_updates_in_place_not_a_duplicate_row(db):
         "SELECT COUNT(*) FROM settings WHERE key = ?", ("theme",)
     ).fetchone()[0]
     assert count == 1
+
+
+# Performance-pass regression tests: embedding_matrix() now caches its result
+# in memory instead of re-querying + re-JSON-decoding every row on every call
+# -- these confirm both halves of that change (cache actually gets reused,
+# and every write path still correctly invalidates it) since a stale cache
+# would be a silent search-correctness bug hiding behind a speed win.
+
+
+def test_embedding_matrix_is_served_from_cache_when_nothing_changed(db):
+    db.upsert_file(_record(), np.zeros(384, dtype=np.float32))
+
+    records_first, matrix_first = db.embedding_matrix()
+    assert db._cache_dirty is False
+
+    records_second, matrix_second = db.embedding_matrix()
+    # Same cached objects returned, not freshly rebuilt from SQLite.
+    assert records_second is records_first
+    assert matrix_second is matrix_first
+
+
+def test_embedding_matrix_cache_invalidated_by_upsert(db):
+    db.upsert_file(_record(path="a.jpg", filename="a.jpg"), np.zeros(384, dtype=np.float32))
+    db.embedding_matrix()  # populate cache
+    assert db._cache_dirty is False
+
+    db.upsert_file(_record(path="b.jpg", filename="b.jpg"), np.ones(384, dtype=np.float32))
+
+    records, matrix = db.embedding_matrix()
+    assert len(records) == 2
+    assert matrix.shape == (2, 384)
+
+
+def test_embedding_matrix_cache_invalidated_by_upsert_files_batch(db):
+    db.upsert_file(_record(path="a.jpg", filename="a.jpg"), np.zeros(384, dtype=np.float32))
+    db.embedding_matrix()  # populate cache
+
+    db.upsert_files(
+        [
+            (_record(path="b.jpg", filename="b.jpg"), np.ones(384, dtype=np.float32)),
+            (_record(path="c.jpg", filename="c.jpg"), np.full(384, 2.0, dtype=np.float32)),
+        ]
+    )
+
+    records, matrix = db.embedding_matrix()
+    assert {r.path for r in records} == {"a.jpg", "b.jpg", "c.jpg"}
+    assert matrix.shape == (3, 384)
+
+
+def test_embedding_matrix_cache_invalidated_by_delete_missing(db):
+    db.upsert_file(_record(path="a.jpg", filename="a.jpg"), np.zeros(384, dtype=np.float32))
+    db.upsert_file(_record(path="b.jpg", filename="b.jpg"), np.zeros(384, dtype=np.float32))
+    db.embedding_matrix()  # populate cache
+
+    db.delete_missing({"a.jpg"})
+
+    records, matrix = db.embedding_matrix()
+    assert [r.path for r in records] == ["a.jpg"]
+    assert matrix.shape == (1, 384)
+
+
+def test_embedding_matrix_cache_invalidated_by_delete_file_by_path(db):
+    db.upsert_file(_record(path="a.jpg", filename="a.jpg"), np.zeros(384, dtype=np.float32))
+    db.upsert_file(_record(path="b.jpg", filename="b.jpg"), np.zeros(384, dtype=np.float32))
+    db.embedding_matrix()  # populate cache
+
+    db.delete_file_by_path("a.jpg")
+
+    records, matrix = db.embedding_matrix()
+    assert [r.path for r in records] == ["b.jpg"]
+    assert matrix.shape == (1, 384)
+
+
+def test_embedding_matrix_cache_invalidated_by_update_file_path(db):
+    embedding = np.random.rand(384).astype(np.float32)
+    db.upsert_file(_record(path="old.jpg", filename="old.jpg"), embedding)
+    db.embedding_matrix()  # populate cache
+
+    db.update_file_path("old.jpg", "new.jpg", "new.jpg")
+
+    records, matrix = db.embedding_matrix()
+    assert [r.path for r in records] == ["new.jpg"]
+    assert np.array_equal(matrix[0], embedding)
+
+
+def test_embedding_matrix_returns_empty_when_no_files_and_stays_cached(db):
+    records, matrix = db.embedding_matrix()
+    assert records == []
+    assert matrix is None
+    assert db._cache_dirty is False
+
+
+def test_all_mtimes_returns_id_and_mtime_by_path(db):
+    db.upsert_file(_record(path="a.jpg", filename="a.jpg"), np.zeros(384, dtype=np.float32))
+
+    mtimes = db.all_mtimes()
+
+    assert mtimes == {"a.jpg": ("id-a.jpg", 1.0)}
+
+
+def test_upsert_files_batch_stores_all_records_in_one_call(db):
+    items = [
+        (_record(path="a.jpg", filename="a.jpg"), np.zeros(384, dtype=np.float32)),
+        (_record(path="b.jpg", filename="b.jpg"), np.ones(384, dtype=np.float32)),
+    ]
+
+    db.upsert_files(items)
+
+    assert len(db) == 2
+    assert db.get_by_path("a.jpg") is not None
+    assert db.get_by_path("b.jpg") is not None
+
+
+def test_upsert_files_with_empty_list_is_a_no_op(db):
+    db.upsert_files([])
+    assert len(db) == 0

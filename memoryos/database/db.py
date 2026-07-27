@@ -121,11 +121,31 @@ class Database:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(self.db_path)
         self._conn.execute("PRAGMA journal_mode=WAL")
+        # NORMAL is WAL mode's own recommended pairing: still durable against
+        # an application crash, just skips the fsync-per-commit FULL does --
+        # the only added risk is losing the last few not-yet-checkpointed
+        # writes on an OS crash/power loss, which for a locally-rebuildable
+        # search index (source files are the real data) is a fine trade for
+        # indexing throughput.
+        self._conn.execute("PRAGMA synchronous=NORMAL")
         self._conn.executescript(SCHEMA)
         self._conn.commit()
         self._migrate_perf_log_paused_seconds()
         self._ensure_search_history_table()
         self._ensure_settings_table()
+
+        # Sprint 10 (performance pass): embedding_matrix() is called on every
+        # search, but the underlying rows only change on a write -- caching
+        # the parsed records + assembled matrix here turns repeated searches
+        # between indexing runs into an O(1) cache hit instead of re-querying
+        # and re-json-decoding every row each time. Invalidated by any write
+        # method below and rebuilt lazily on the next embedding_matrix() call.
+        self._cache_dirty = True
+        self._cached_records: list[FileRecord] = []
+        self._cached_embeddings: np.ndarray | None = None
+
+    def _invalidate_cache(self) -> None:
+        self._cache_dirty = True
 
     def _migrate_perf_log_paused_seconds(self) -> None:
         columns = {row[1] for row in self._conn.execute("PRAGMA table_info(perf_log)")}
@@ -147,8 +167,37 @@ class Database:
         self._conn.close()
 
     def upsert_file(self, record: FileRecord, embedding: np.ndarray) -> None:
-        embedding = np.asarray(embedding)
-        self._conn.execute(
+        self.upsert_files([(record, embedding)])
+
+    def upsert_files(self, items: list[tuple[FileRecord, np.ndarray]]) -> None:
+        """Batched upsert -- one transaction/commit for the whole list instead
+        of one fsync-ing commit per record, used by DatabaseIndexer's
+        per-batch flush so indexing throughput doesn't pay a disk sync per
+        file. upsert_file() above is just this called with a single item."""
+        if not items:
+            return
+
+        params = []
+        for record, embedding in items:
+            embedding = np.asarray(embedding)
+            params.append(
+                (
+                    record.id,
+                    record.path,
+                    record.filename,
+                    record.extension,
+                    record.file_type,
+                    record.semantic_text,
+                    json.dumps(record.metadata, ensure_ascii=False),
+                    record.mtime,
+                    record.indexed_at,
+                    embedding.tobytes(),
+                    str(embedding.dtype),
+                    json.dumps(embedding.shape),
+                )
+            )
+
+        self._conn.executemany(
             f"""
             INSERT INTO files ({_FILE_COLUMNS}, embedding, embedding_dtype, embedding_shape)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -159,22 +208,10 @@ class Database:
                 indexed_at=excluded.indexed_at, embedding=excluded.embedding,
                 embedding_dtype=excluded.embedding_dtype, embedding_shape=excluded.embedding_shape
             """,
-            (
-                record.id,
-                record.path,
-                record.filename,
-                record.extension,
-                record.file_type,
-                record.semantic_text,
-                json.dumps(record.metadata, ensure_ascii=False),
-                record.mtime,
-                record.indexed_at,
-                embedding.tobytes(),
-                str(embedding.dtype),
-                json.dumps(embedding.shape),
-            ),
+            params,
         )
         self._conn.commit()
+        self._invalidate_cache()
 
     def get_by_path(self, path: str) -> FileRecord | None:
         row = self._conn.execute(
@@ -188,14 +225,31 @@ class Database:
         ).fetchall()
         return [_row_to_record(r) for r in rows]
 
+    def all_mtimes(self) -> dict[str, tuple[str, float]]:
+        """Lightweight bulk fetch of path -> (id, mtime) only -- no metadata
+        JSON decode, no embedding blob -- for the "is this file unchanged?"
+        pre-check that used to run as one get_by_path() round-trip per file.
+        One query instead of N lets an incremental reindex skip straight to a
+        dict lookup for the (usually large) majority of already-indexed,
+        unchanged files."""
+        rows = self._conn.execute("SELECT id, path, mtime FROM files").fetchall()
+        return {path: (id_, mtime) for id_, path, mtime in rows}
+
     def embedding_matrix(self) -> tuple[list[FileRecord], np.ndarray | None]:
-        """Records and their embeddings, aligned by position (row i <-> records[i])."""
+        """Records and their embeddings, aligned by position (row i <-> records[i]).
+        Served from the in-memory cache when nothing has been written since
+        the last call; rebuilt from SQLite (and re-cached) otherwise."""
+        if not self._cache_dirty:
+            return self._cached_records, self._cached_embeddings
+
         rows = self._conn.execute(
             f"SELECT {_FILE_COLUMNS}, embedding, embedding_dtype, embedding_shape "
             f"FROM files ORDER BY rowid"
         ).fetchall()
         if not rows:
-            return [], None
+            self._cached_records, self._cached_embeddings = [], None
+            self._cache_dirty = False
+            return self._cached_records, self._cached_embeddings
 
         records = []
         vectors = []
@@ -204,7 +258,11 @@ class Database:
             records.append(_row_to_record(record_fields))
             shape = tuple(json.loads(shape_json))
             vectors.append(np.frombuffer(embedding_blob, dtype=np.dtype(dtype_str)).reshape(shape))
-        return records, np.vstack(vectors)
+
+        self._cached_records = records
+        self._cached_embeddings = np.vstack(vectors)
+        self._cache_dirty = False
+        return self._cached_records, self._cached_embeddings
 
     def delete_missing(self, existing_paths: set[str]) -> int:
         rows = self._conn.execute("SELECT path FROM files").fetchall()
@@ -214,6 +272,7 @@ class Database:
                 "DELETE FROM files WHERE path = ?", [(p,) for p in to_delete]
             )
             self._conn.commit()
+            self._invalidate_cache()
         return len(to_delete)
 
     def update_file_path(self, old_path: str, new_path: str, new_filename: str) -> None:
@@ -227,6 +286,7 @@ class Database:
             (new_path, new_filename, old_path),
         )
         self._conn.commit()
+        self._invalidate_cache()
 
     def delete_file_by_path(self, path: str) -> None:
         """Sprint 4 (delete): removes the record immediately so search
@@ -234,6 +294,7 @@ class Database:
         indexing run's delete_missing() pass."""
         self._conn.execute("DELETE FROM files WHERE path = ?", (path,))
         self._conn.commit()
+        self._invalidate_cache()
 
     def record_indexing_run(
         self,
