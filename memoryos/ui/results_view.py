@@ -2,18 +2,30 @@
 QTableWidget results display. MainWindow calls set_results(hits, theme,
 query) with whatever DatabaseSearchEngine already returned -- this widget
 has no search logic of its own, only presentation and (V2) client-side
-filtering over the already-fetched hits."""
+filtering over the already-fetched hits.
+
+AI Project Collections (Week 2, Phase 2): the collection filter (from
+SearchResultsFilterBar's dropdown) ANDs with the existing category tab, and
+collection membership is supplied once per search/update via
+set_collection_membership() -- a dict already computed by MainWindow from
+one CollectionManager query, not looked up per card -- both for filtering
+and for the badge chips ResultCard renders."""
 
 from pathlib import Path
 
 from PySide6.QtCore import QPropertyAnimation, Qt, Signal
 from PySide6.QtWidgets import QGraphicsOpacityEffect, QScrollArea, QVBoxLayout, QWidget
 
+from memoryos.database.db import Collection
 from memoryos.search.engine import SearchHit
 from memoryos.theme import Theme
 from memoryos.ui.filter_empty_state import FilterEmptyState
 from memoryos.ui.result_card import ResultCard
-from memoryos.ui.search_results_filter_bar import SearchResultsFilterBar, categorize_extension
+from memoryos.ui.search_results_filter_bar import (
+    NO_COLLECTION_FILTER,
+    SearchResultsFilterBar,
+    categorize_extension,
+)
 
 _FADE_DURATION_MS = 180
 
@@ -25,6 +37,7 @@ class ResultsView(QWidget):
     rename_requested = Signal(str)
     delete_requested = Signal(str)
     filter_selected = Signal(str)
+    add_to_collection_requested = Signal(str)  # file path
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -34,6 +47,9 @@ class ResultsView(QWidget):
         self._all_hits: list[SearchHit] = []
         self._current_query = ""
         self._active_filter = "All"
+        self._active_collection_id = NO_COLLECTION_FILTER
+        self._collection_membership: dict[str, list[Collection]] = {}
+        self._collection_names: dict[str, str] = {}
 
         outer_layout = QVBoxLayout(self)
         outer_layout.setContentsMargins(0, 0, 0, 0)
@@ -44,6 +60,7 @@ class ResultsView(QWidget):
         # never flashes visible before the first populated search.
         self._filter_bar = SearchResultsFilterBar()
         self._filter_bar.filter_selected.connect(self._on_filter_selected)
+        self._filter_bar.collection_filter_selected.connect(self._on_collection_filter_selected)
         self._filter_bar.setVisible(False)
         outer_layout.addWidget(self._filter_bar)
 
@@ -74,11 +91,25 @@ class ResultsView(QWidget):
         # The filter bar only makes sense once there's something to filter --
         # hidden for a zero-result search, and reset to "All" on every new
         # populated search so a stale tab selection from a previous,
-        # unrelated search doesn't silently carry over.
+        # unrelated search doesn't silently carry over. The collection
+        # filter is deliberately NOT reset here -- see
+        # SearchResultsFilterBar's own comment on why it persists.
         self._filter_bar.setVisible(bool(hits))
         if hits:
             self._filter_bar.reset()
 
+        self._render_filtered()
+
+    def set_collections(self, collections: list[Collection]) -> None:
+        """Feeds the filter bar's dropdown and this view's own id->name
+        lookup (for the collection-scoped empty-state message) -- called by
+        MainWindow whenever collections are created/renamed/deleted/
+        discovered, so neither ever shows stale data."""
+        self._filter_bar.set_collections(collections)
+        self._collection_names = {c.id: c.name for c in collections}
+
+    def set_collection_membership(self, membership: dict[str, list[Collection]]) -> None:
+        self._collection_membership = membership
         self._render_filtered()
 
     def _on_filter_selected(self, label: str) -> None:
@@ -89,27 +120,44 @@ class ResultsView(QWidget):
         # acts on it internally.
         self.filter_selected.emit(label)
 
+    def _on_collection_filter_selected(self, collection_id: str) -> None:
+        self._active_collection_id = collection_id
+        self._render_filtered()
+
     def _render_filtered(self) -> None:
-        if self._active_filter == "All":
-            filtered = self._all_hits
-        else:
+        filtered = self._all_hits
+        if self._active_filter != "All":
             filtered = [
                 hit
-                for hit in self._all_hits
+                for hit in filtered
                 if categorize_extension(Path(hit.path).suffix) == self._active_filter
+            ]
+
+        active_collection_name = None
+        if self._active_collection_id:
+            active_collection_name = self._collection_names.get(self._active_collection_id)
+            filtered = [
+                hit
+                for hit in filtered
+                if any(
+                    c.id == self._active_collection_id
+                    for c in self._collection_membership.get(hit.path, [])
+                )
             ]
 
         self._render_cards(filtered)
 
         # Only the "some results overall, but none in this specific
-        # category" case shows the new per-filter empty state -- a genuine
-        # zero-result search is a different, already-existing case (the
-        # filter bar itself is hidden then, per set_results() above).
+        # category/collection" case shows the new per-filter empty state --
+        # a genuine zero-result search is a different, already-existing case
+        # (the filter bar itself is hidden then, per set_results() above).
         show_empty_message = bool(self._all_hits) and not filtered
         self._filter_empty_state.setVisible(show_empty_message)
         self._scroll_area.setVisible(not show_empty_message)
         if show_empty_message:
-            self._filter_empty_state.set_message(self._active_filter, self._current_query)
+            self._filter_empty_state.set_message(
+                self._active_filter, self._current_query, active_collection_name
+            )
 
         self._play_fade_in()
 
@@ -119,12 +167,15 @@ class ResultsView(QWidget):
         self._cards.clear()
 
         for hit in hits:
-            card = ResultCard(hit, self._theme)
+            card = ResultCard(
+                hit, self._theme, collections=self._collection_membership.get(hit.path, [])
+            )
             card.open_requested.connect(self.open_requested)
             card.reveal_requested.connect(self.reveal_requested)
             card.copy_requested.connect(self.copy_requested)
             card.rename_requested.connect(self.rename_requested)
             card.delete_requested.connect(self.delete_requested)
+            card.add_to_collection_requested.connect(self.add_to_collection_requested)
             self._container_layout.insertWidget(self._container_layout.count() - 1, card)
             self._cards.append(card)
 

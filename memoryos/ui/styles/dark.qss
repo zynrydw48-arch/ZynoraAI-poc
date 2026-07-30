@@ -170,6 +170,47 @@ QPushButton#filterTab:checked {
     border-bottom: 2px solid #D4AF37;
 }
 
+/* AI Project Collections (Week 2, Phase 2): the filter bar's collection
+   dropdown -- QComboBox had no rule at all before this, so it fell back to
+   Fusion's flat gray default, clashing with the rest of the gold/navy
+   theme. Tokens reused exactly from QLineEdit/QPushButton (surface/border/
+   radius/hover) and QMenu (dropdown list). */
+QComboBox {
+    background-color: #0B132B;
+    border: 1px solid #1C2541;
+    border-radius: 8px;
+    padding: 6px 12px;
+    color: #F2EFE9;
+}
+
+QComboBox:hover {
+    border: 1px solid #E5C158;
+}
+
+QComboBox::drop-down {
+    border: none;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #0B132B;
+    border: 1px solid #1C2541;
+    color: #F2EFE9;
+    selection-background-color: #1C2541;
+    outline: none;
+}
+
+/* AI Project Collections (Week 2, Phase 2): the "📁 Name" chip ResultCard
+   shows per collection a file belongs to -- a small pill, gold-on-navy so
+   it reads as a brand-accented tag rather than plain body text. */
+QLabel#collectionBadge {
+    background-color: #1C2541;
+    color: #E5C158;
+    border-radius: 10px;
+    padding: 2px 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
 QProgressBar {
     border: none;
     border-radius: 6px;

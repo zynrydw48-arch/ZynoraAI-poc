@@ -10,6 +10,8 @@ from PySide6.QtCore import QPropertyAnimation, QTimer, Qt
 from PySide6.QtGui import QAction, QActionGroup, QPalette
 from PySide6.QtWidgets import (
     QApplication,
+    QButtonGroup,
+    QDialog,
     QFileDialog,
     QHBoxLayout,
     QInputDialog,
@@ -26,15 +28,19 @@ from PySide6.QtWidgets import (
 
 from memoryos import file_actions
 from memoryos.__version__ import __version__
+from memoryos.background.collection_discovery_worker import CollectionDiscoveryWorker
 from memoryos.background.resource_monitor import PauseReason, ResourceMonitor
 from memoryos.background.worker import IndexingWorker
-from memoryos.database.db import Database
+from memoryos.collections.manager import CollectionManager
+from memoryos.database.db import Collection, Database
 from memoryos.embeddings.provider import EmbeddingProvider
 from memoryos.indexing import DatabaseIndexer, IndexStats
 from memoryos.ocr.engine import OcrEngine
 from memoryos.scanner.discover import discover_files
 from memoryos.search.engine import DatabaseSearchEngine, SearchHit
 from memoryos.theme import Theme, apply_theme, resolve_effective_theme
+from memoryos.ui.add_to_collection_dialog import AddToCollectionDialog
+from memoryos.ui.collections_view import CollectionsView
 from memoryos.ui.empty_state import EmptyState
 from memoryos.ui.icons import get_icon
 from memoryos.ui.results_view import ResultsView
@@ -83,9 +89,11 @@ class MainWindow(QMainWindow):
         self._db_path = db_path
         self._database = database  # Sprint 3: needed for search history
         self._search_engine = DatabaseSearchEngine(embedding_provider, database)
+        self._collection_manager = CollectionManager(database)
         self._selected_folder: Path | None = None
 
         self._worker: IndexingWorker | None = None
+        self._discovery_worker: CollectionDiscoveryWorker | None = None
         self._resource_monitor: ResourceMonitor | None = None
         self._resource_timer: QTimer | None = None
         self._manual_pause_active = False
@@ -108,6 +116,41 @@ class MainWindow(QMainWindow):
     def _build_ui(self) -> None:
         self._build_menu_bar()
         effective_theme = self._effective_theme()
+
+        # AI Project Collections (Week 2, Phase 2): a small Search/Collections
+        # switcher above everything else, wrapping the app's pre-existing
+        # single-column content (unchanged below, still called "central" in
+        # spirit) and the new CollectionsView in a QStackedWidget -- reuses
+        # the exact same checkable-QPushButton-group pattern
+        # SearchResultsFilterBar's category tabs already use, including
+        # "filterTab" styling, so no new QSS is needed for the nav itself.
+        outer_central = QWidget()
+        outer_layout = QVBoxLayout(outer_central)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(0)
+
+        nav_row = QHBoxLayout()
+        nav_row.setContentsMargins(18, 12, 18, 0)
+        self._nav_button_group = QButtonGroup(self)
+        self._nav_button_group.setExclusive(True)
+        self._search_nav_button = QPushButton("Search")
+        self._search_nav_button.setObjectName("filterTab")
+        self._search_nav_button.setCheckable(True)
+        self._search_nav_button.setChecked(True)
+        self._search_nav_button.clicked.connect(lambda: self._on_nav_selected(0))
+        self._collections_nav_button = QPushButton("Collections")
+        self._collections_nav_button.setObjectName("filterTab")
+        self._collections_nav_button.setCheckable(True)
+        self._collections_nav_button.clicked.connect(lambda: self._on_nav_selected(1))
+        self._nav_button_group.addButton(self._search_nav_button)
+        self._nav_button_group.addButton(self._collections_nav_button)
+        nav_row.addWidget(self._search_nav_button)
+        nav_row.addWidget(self._collections_nav_button)
+        nav_row.addStretch(1)
+        outer_layout.addLayout(nav_row)
+
+        self._page_stack = QStackedWidget()
+        outer_layout.addWidget(self._page_stack, 1)
 
         central = QWidget()
         layout = QVBoxLayout(central)
@@ -222,6 +265,7 @@ class MainWindow(QMainWindow):
         self._results_view.copy_requested.connect(self._on_copy_path)
         self._results_view.rename_requested.connect(self._on_rename_file)
         self._results_view.delete_requested.connect(self._on_delete_file)
+        self._results_view.add_to_collection_requested.connect(self._on_add_to_collection_requested)
 
         self._results_stack = QStackedWidget()
         self._results_stack.addWidget(self._empty_state)
@@ -229,7 +273,28 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._results_stack, 1)
         self._refresh_results_visibility()
 
-        self.setCentralWidget(central)
+        self._page_stack.addWidget(central)
+
+        # AI Project Collections (Week 2, Phase 2): the "Virtual Folders"
+        # page -- its own container so it gets the same outer margins as the
+        # search page's central widget did implicitly (Qt's default layout
+        # margins), rather than butting up against the window edge.
+        collections_page = QWidget()
+        collections_layout = QVBoxLayout(collections_page)
+        collections_layout.setSpacing(18)
+        self._collections_view = CollectionsView()
+        self._collections_view.discover_requested.connect(self._on_discover_projects)
+        self._collections_view.create_requested.connect(self._on_create_collection)
+        self._collections_view.rename_requested.connect(self._on_rename_collection)
+        self._collections_view.delete_requested.connect(self._on_delete_collection)
+        self._collections_view.remove_file_requested.connect(
+            self._on_remove_file_from_collection
+        )
+        collections_layout.addWidget(self._collections_view)
+        self._page_stack.addWidget(collections_page)
+
+        self.setCentralWidget(outer_central)
+        self._refresh_collections_ui()
 
     @staticmethod
     def _section_title(text: str) -> QLabel:
@@ -577,3 +642,125 @@ class MainWindow(QMainWindow):
         # Bug fix: refresh the results without recording a new history entry
         # -- this is an internal refresh, not a user-initiated search.
         self._run_search(self._search_line_edit.text().strip(), record_history=False)
+
+    # --- AI Project Collections (Week 2, Phase 2) -------------------------
+
+    def _on_nav_selected(self, index: int) -> None:
+        self._page_stack.setCurrentIndex(index)
+        if index == 1:
+            self._refresh_collections_ui()
+
+    def _refresh_collections_ui(self) -> None:
+        """The single place that re-fetches collections from
+        CollectionManager and pushes them everywhere they're displayed --
+        called after every create/rename/delete/add-file/remove-file/
+        discovery action, so CollectionsView's cards, the filter bar's
+        dropdown, and ResultCard's badges never go stale relative to each
+        other or to the database."""
+        collections = self._collection_manager.list_collections()
+        self._collections_view.refresh(collections, self._effective_theme())
+        self._results_view.set_collections(collections)
+        self._results_view.set_collection_membership(self._build_collection_membership(collections))
+
+    @staticmethod
+    def _build_collection_membership(collections: list[Collection]) -> dict[str, list[Collection]]:
+        membership: dict[str, list[Collection]] = {}
+        for collection in collections:
+            for path in collection.file_paths:
+                membership.setdefault(path, []).append(collection)
+        return membership
+
+    def _on_discover_projects(self) -> None:
+        # Option B (manual/on-demand trigger, per the user's explicit
+        # choice): this only ever runs from this button click, never
+        # automatically after indexing. Guarded against overlapping with
+        # either another discovery run or an active indexing run -- both
+        # write to the same SQLite file, and clustering mid-index would
+        # scan a stale/incomplete embedding matrix anyway.
+        if self._discovery_worker is not None or self._worker is not None:
+            return
+
+        self._collections_view.set_discovering(True)
+        self._discovery_worker = CollectionDiscoveryWorker(self._db_path)
+        self._discovery_worker.finished_discovery.connect(self._on_discovery_finished)
+        self._discovery_worker.error.connect(self._on_discovery_error)
+        self._discovery_worker.start()
+
+    def _on_discovery_finished(self, created: list[Collection]) -> None:
+        self._teardown_discovery_worker()
+        self._refresh_collections_ui()
+        if created:
+            self._show_toast(f"Discovered {len(created)} new collection(s).")
+        else:
+            # Requirement: an empty state for "auto-discovery finds no
+            # clusters" -- if collections already exist, CollectionsView
+            # keeps showing them (this isn't a "nothing exists" empty state,
+            # just a "nothing new this time" toast).
+            self._show_toast("No new project clusters found.")
+
+    def _on_discovery_error(self, message: str) -> None:
+        self._teardown_discovery_worker()
+        QMessageBox.warning(self, "Discover Projects failed", message)
+
+    def _teardown_discovery_worker(self) -> None:
+        if self._discovery_worker is not None:
+            # Same reason _teardown_worker() waits for IndexingWorker below --
+            # dropping the last reference to a QThread before its underlying
+            # OS thread has actually finished can crash the process.
+            self._discovery_worker.wait()
+        self._discovery_worker = None
+        self._collections_view.set_discovering(False)
+
+    def _on_create_collection(self) -> None:
+        name, confirmed = QInputDialog.getText(self, "New collection", "Collection name:")
+        if not confirmed or not name.strip():
+            return
+        self._collection_manager.create_collection(name.strip())
+        self._refresh_collections_ui()
+
+    def _on_rename_collection(self, collection_id: str) -> None:
+        collection = self._collection_manager.get_collection(collection_id)
+        if collection is None:
+            return
+        new_name, confirmed = QInputDialog.getText(
+            self, "Rename collection", "New name:", text=collection.name
+        )
+        if not confirmed or not new_name.strip():
+            return
+        self._collection_manager.rename_collection(collection_id, new_name.strip())
+        self._refresh_collections_ui()
+
+    def _on_delete_collection(self, collection_id: str) -> None:
+        collection = self._collection_manager.get_collection(collection_id)
+        if collection is None:
+            return
+        confirmed = QMessageBox.question(
+            self,
+            "Delete collection",
+            f"Delete '{collection.name}'? This only removes the collection "
+            "itself -- the files in it are left untouched.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if confirmed != QMessageBox.StandardButton.Yes:
+            return
+        self._collection_manager.delete_collection(collection_id)
+        self._refresh_collections_ui()
+
+    def _on_remove_file_from_collection(self, collection_id: str, file_path: str) -> None:
+        self._collection_manager.remove_files(collection_id, [file_path])
+        self._refresh_collections_ui()
+
+    def _on_add_to_collection_requested(self, file_path: str) -> None:
+        collections = self._collection_manager.list_collections()
+        dialog = AddToCollectionDialog(collections, parent=self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        existing_id = dialog.existing_collection_id()
+        if existing_id:
+            self._collection_manager.add_files(existing_id, [file_path])
+        else:
+            new_name = dialog.new_collection_name()
+            if new_name:
+                self._collection_manager.create_collection(new_name, file_paths=[file_path])
+        self._refresh_collections_ui()

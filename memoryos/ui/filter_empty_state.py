@@ -46,9 +46,12 @@ class FilterEmptyState(QWidget):
 
         self.set_theme(Theme.LIGHT)
 
-    def set_message(self, category: str, query: str) -> None:
+    def set_message(self, category: str, query: str, collection_name: str | None = None) -> None:
         display_name = _MESSAGE_CATEGORY_NAMES.get(category, category.lower())
-        self._message_label.setText(f"We couldn't find any {display_name} matching '{query}'")
+        message = f"We couldn't find any {display_name} matching '{query}'"
+        if collection_name:
+            message += f" in '{collection_name}'"
+        self._message_label.setText(message)
 
     def set_theme(self, theme: Theme) -> None:
         icon = get_icon("search", theme)

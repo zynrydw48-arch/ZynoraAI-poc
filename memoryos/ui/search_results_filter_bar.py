@@ -4,9 +4,17 @@ filtering logic yet; see the widget's filter_selected signal, which a future
 sprint can connect to without touching this file again."""
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QWidget
+from PySide6.QtWidgets import QButtonGroup, QComboBox, QHBoxLayout, QPushButton, QWidget
+
+from memoryos.database.db import Collection
 
 TAB_LABELS = ["All", "Images", "Email", "Web", "Files", "Notes", "More..."]
+
+# AI Project Collections (Week 2, Phase 2): sentinel userData for the combo
+# box's "no collection filter" entry -- empty string, never a real
+# collection_id (those are UUIDs from memoryos.database.db.create_collection).
+_ALL_COLLECTIONS_LABEL = "All Collections"
+NO_COLLECTION_FILTER = ""
 
 # Client-side categorization only -- purely a re-render over SearchHits
 # already fetched by the (untouched) search engine, not a statement about
@@ -42,6 +50,8 @@ def categorize_extension(extension: str) -> str:
 
 class SearchResultsFilterBar(QWidget):
     filter_selected = Signal(str)
+    # collection_id, or NO_COLLECTION_FILTER ("") for "All Collections"
+    collection_filter_selected = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -66,11 +76,50 @@ class SearchResultsFilterBar(QWidget):
             layout.addWidget(button)
 
         layout.addStretch(1)
+
+        # AI Project Collections (Week 2, Phase 2): a separate, independent
+        # filter that ANDs with whichever category tab is active (see
+        # ResultsView._render_filtered) -- deliberately does NOT reset on
+        # reset()/every new search the way the category tabs do, since
+        # "only show me files in Project Zephyr" reads as a standing scope
+        # choice the user wants to keep across several different queries,
+        # not a per-search view toggle.
+        self._collection_combo = QComboBox()
+        self._collection_combo.setObjectName("collectionFilterCombo")
+        self._collection_combo.addItem(_ALL_COLLECTIONS_LABEL, NO_COLLECTION_FILTER)
+        self._collection_combo.currentIndexChanged.connect(self._on_collection_combo_changed)
+        layout.addWidget(self._collection_combo)
+
         self._buttons["All"].setChecked(True)
 
     def _on_tab_clicked(self, label: str) -> None:
-        print(f"Filtering for: {label}")
         self.filter_selected.emit(label)
+
+    def _on_collection_combo_changed(self, index: int) -> None:
+        collection_id = self._collection_combo.itemData(index) or NO_COLLECTION_FILTER
+        self.collection_filter_selected.emit(collection_id)
+
+    def set_collections(self, collections: list[Collection]) -> None:
+        """(Re)populates the collection dropdown -- called by MainWindow
+        whenever a collection is created/renamed/deleted/discovered, so the
+        list never goes stale. Preserves the current selection by id when
+        possible; if the previously-selected collection no longer exists
+        (e.g. it was just deleted), falls back to "All Collections" and
+        emits that change so ResultsView's filter resets along with it."""
+        previously_selected = self._collection_combo.currentData() or NO_COLLECTION_FILTER
+        self._collection_combo.blockSignals(True)
+        self._collection_combo.clear()
+        self._collection_combo.addItem(_ALL_COLLECTIONS_LABEL, NO_COLLECTION_FILTER)
+        restored_index = 0
+        for i, collection in enumerate(collections, start=1):
+            self._collection_combo.addItem(collection.name, collection.id)
+            if collection.id == previously_selected:
+                restored_index = i
+        self._collection_combo.setCurrentIndex(restored_index)
+        self._collection_combo.blockSignals(False)
+
+        if restored_index == 0 and previously_selected != NO_COLLECTION_FILTER:
+            self.collection_filter_selected.emit(NO_COLLECTION_FILTER)
 
     def reset(self) -> None:
         self._buttons["All"].setChecked(True)

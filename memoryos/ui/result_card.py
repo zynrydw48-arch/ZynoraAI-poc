@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from memoryos.database.db import Collection
 from memoryos.search.engine import SearchHit
 from memoryos.theme import Theme
 from memoryos.ui.email_preview_panel import EmailPreviewPanel
@@ -31,8 +32,11 @@ class ResultCard(QWidget):
     copy_requested = Signal(str)
     rename_requested = Signal(str)
     delete_requested = Signal(str)
+    add_to_collection_requested = Signal(str)  # file path
 
-    def __init__(self, hit: SearchHit, theme: Theme, parent=None):
+    def __init__(
+        self, hit: SearchHit, theme: Theme, collections: list[Collection] | None = None, parent=None
+    ):
         super().__init__(parent)
         self.setObjectName("resultCard")
         # Plain QWidget subclasses don't paint QSS background-color/border by
@@ -40,6 +44,7 @@ class ResultCard(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._path = hit.path
         self._is_email = hit.file_type == EMAIL
+        self._collections = collections or []
         # Extractor-specific structured fields (email_subject, page_count for
         # PDF, etc.) live nested under metadata["structural"] -- see
         # memoryos/indexing.py's build_semantic_text_and_metadata, which is
@@ -75,6 +80,13 @@ class ResultCard(QWidget):
         path_label.setObjectName("mutedLabel")
         path_label.setToolTip(hit.path)
         layout.addWidget(path_label)
+
+        # AI Project Collections (Week 2, Phase 2): one small chip per
+        # collection this file belongs to -- additive, same "don't touch
+        # filename_label/existing rows" principle as the email summary rows
+        # below.
+        if self._collections:
+            layout.addLayout(self._build_collection_badges_row())
 
         # Email Search Integration Phase 2: Subject/Sender/Date/Attachments
         # surfaced straight from SearchHit.metadata (see
@@ -145,6 +157,16 @@ class ResultCard(QWidget):
             attachments_label.setObjectName("mutedLabel")
             layout.addWidget(attachments_label)
 
+    def _build_collection_badges_row(self) -> QHBoxLayout:
+        row = QHBoxLayout()
+        row.setSpacing(6)
+        for collection in self._collections:
+            badge = QLabel(f"\U0001F4C1 {collection.name}")  # 📁
+            badge.setObjectName("collectionBadge")
+            row.addWidget(badge)
+        row.addStretch(1)
+        return row
+
     def _show_email_preview(self) -> None:
         dialog = EmailPreviewPanel(self._email_metadata, self._email_filename, self._theme, parent=self)
         dialog.exec()
@@ -165,14 +187,26 @@ class ResultCard(QWidget):
             path, Qt.TextElideMode.ElideMiddle, _PATH_ELIDE_MAX_CHARS * avg_char_width
         )
 
-    def _show_context_menu(self, position) -> None:
+    def _build_context_menu(self) -> QMenu:
+        """Split out from _show_context_menu so tests can trigger an action
+        directly (menu.exec() is a real blocking modal call in PySide6 that
+        can't be monkeypatched away like QMessageBox.question/QInputDialog.getText
+        elsewhere in this codebase -- calling it in a test either hangs or
+        crashes the process)."""
         menu = QMenu(self)
         menu.addAction("Open", lambda: self.open_requested.emit(self._path))
         menu.addAction("Reveal in Folder", lambda: self.reveal_requested.emit(self._path))
         menu.addAction("Copy Path", lambda: self.copy_requested.emit(self._path))
         menu.addAction("Rename...", lambda: self.rename_requested.emit(self._path))
         menu.addAction("Delete", lambda: self.delete_requested.emit(self._path))
-        menu.exec(self.mapToGlobal(position))
+        menu.addSeparator()
+        menu.addAction(
+            "Add to Collection...", lambda: self.add_to_collection_requested.emit(self._path)
+        )
+        return menu
+
+    def _show_context_menu(self, position) -> None:
+        self._build_context_menu().exec(self.mapToGlobal(position))
 
     def set_theme(self, theme: Theme) -> None:
         self._theme = theme

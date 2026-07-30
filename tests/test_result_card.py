@@ -7,6 +7,7 @@ import sys
 import pytest
 from PySide6.QtWidgets import QApplication, QLabel
 
+from memoryos.database.db import Collection
 from memoryos.search.engine import SearchHit
 from memoryos.theme import Theme
 from memoryos.ui.email_preview_panel import EmailPreviewPanel
@@ -119,3 +120,69 @@ def test_non_email_hit_reasons_and_path_still_render():
     all_text = " ".join(w.text() for w in card.findChildren(QLabel) if hasattr(w, "text"))
     assert "report.pdf" in all_text
     assert "Document text matches: quarterly" in all_text
+
+
+# --- AI Project Collections (Week 2, Phase 2): badge chips + "Add to
+# Collection..." ------------------------------------------------------
+
+
+def _collection(**overrides) -> Collection:
+    defaults = dict(
+        id="c1",
+        name="Project Zephyr",
+        description="",
+        auto_generated=False,
+        created_at=1.0,
+        updated_at=1.0,
+        file_paths=[],
+    )
+    defaults.update(overrides)
+    return Collection(**defaults)
+
+
+def test_no_collections_shows_no_badge():
+    card = ResultCard(_file_hit(), Theme.LIGHT, collections=[])
+    all_text = " ".join(w.text() for w in card.findChildren(QLabel) if hasattr(w, "text"))
+    assert "\U0001F4C1" not in all_text
+
+
+def test_collections_render_as_badges():
+    card = ResultCard(
+        _file_hit(),
+        Theme.LIGHT,
+        collections=[_collection(name="Project Zephyr"), _collection(name="Q3 Financials")],
+    )
+    all_text = " ".join(w.text() for w in card.findChildren(QLabel) if hasattr(w, "text"))
+    assert "Project Zephyr" in all_text
+    assert "Q3 Financials" in all_text
+    assert all_text.count("\U0001F4C1") == 2
+
+
+def test_add_to_collection_context_menu_action_emits_signal():
+    # _build_context_menu() is a seam that stops short of the real
+    # menu.exec() -- that call is a genuine blocking modal in PySide6 and
+    # can't be monkeypatched away like QMessageBox.question/QInputDialog.getText
+    # elsewhere in this codebase (attempting to crashed the test process).
+    card = ResultCard(_file_hit(path="/docs/report.pdf"), Theme.LIGHT)
+    received = []
+    card.add_to_collection_requested.connect(received.append)
+
+    menu = card._build_context_menu()
+    action = next(a for a in menu.actions() if a.text() == "Add to Collection...")
+    action.trigger()
+
+    assert received == ["/docs/report.pdf"]
+
+
+def test_context_menu_has_all_expected_actions():
+    card = ResultCard(_file_hit(), Theme.LIGHT)
+    menu = card._build_context_menu()
+    labels = [a.text() for a in menu.actions() if a.text()]
+    assert labels == [
+        "Open",
+        "Reveal in Folder",
+        "Copy Path",
+        "Rename...",
+        "Delete",
+        "Add to Collection...",
+    ]
