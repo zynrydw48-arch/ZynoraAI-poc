@@ -260,6 +260,7 @@ class MainWindow(QMainWindow):
         self._empty_state.browse_requested.connect(self._on_browse)
 
         self._results_view = ResultsView()
+        self._results_view.set_embedding_provider(self._embedding_provider)
         self._results_view.open_requested.connect(self._on_open_file)
         self._results_view.reveal_requested.connect(self._on_reveal_in_folder)
         self._results_view.copy_requested.connect(self._on_copy_path)

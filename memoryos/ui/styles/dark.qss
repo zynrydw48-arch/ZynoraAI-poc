@@ -211,6 +211,18 @@ QLabel#collectionBadge {
     font-weight: 600;
 }
 
+/* One-Click Context Summary: the expandable bullet section below a card's
+   action row -- a left gold accent border marks it as generated content,
+   distinct from plain mutedLabel metadata text elsewhere on the card. */
+QLabel#summaryLabel {
+    background-color: #1C2541;
+    color: #F2EFE9;
+    border-left: 2px solid #D4AF37;
+    border-radius: 4px;
+    padding: 8px 10px;
+    font-size: 12px;
+}
+
 QProgressBar {
     border: none;
     border-radius: 6px;

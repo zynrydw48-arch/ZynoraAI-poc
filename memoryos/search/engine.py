@@ -56,6 +56,10 @@ class SearchHit:
     # reads (see memoryos/ranking/reasons.py's RankedRecord Protocol).
     file_type: str = ""
     metadata: dict = field(default_factory=dict)
+    # One-Click Context Summary: the record's own full text, so ResultCard
+    # can run the extractive summarizer locally without a second DB
+    # round-trip per result -- same reasoning as file_type/metadata above.
+    semantic_text: str = ""
 
 
 class SearchEngine:
@@ -88,6 +92,7 @@ class SearchEngine:
                     reasons=build_reasons(query, record),
                     file_type=record.file_type,
                     metadata=record.metadata,
+                    semantic_text=record.semantic_text,
                 )
             )
         return hits
@@ -125,6 +130,7 @@ class DatabaseSearchEngine:
                     reasons=build_reasons(query, record),
                     file_type=record.file_type,
                     metadata=record.metadata,
+                    semantic_text=record.semantic_text,
                 )
             )
 

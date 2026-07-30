@@ -32,6 +32,7 @@ ICONS=(
   "mail:Mail:mail"
   "attach:Attach:attach"
   "eye:Eye:eye"
+  "sparkle:Sparkle:sparkle"
 )
 
 for entry in "${ICONS[@]}"; do

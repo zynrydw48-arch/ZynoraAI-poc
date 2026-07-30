@@ -3,7 +3,9 @@
 filename/path every card already shows for every file type."""
 
 import sys
+import time
 
+import numpy as np
 import pytest
 from PySide6.QtWidgets import QApplication, QLabel
 
@@ -14,6 +16,39 @@ from memoryos.ui.email_preview_panel import EmailPreviewPanel
 from memoryos.ui.result_card import ResultCard
 
 _app = QApplication.instance() or QApplication(sys.argv)
+
+_WAIT_TIMEOUT_S = 5.0
+
+
+class _FakeEmbeddingProvider:
+    """Same hash-seeded deterministic-pseudo-random-vector fake as
+    tests/test_summary_worker.py -- these tests only check that ResultCard
+    wires the button/section/worker together, not ranking quality (that's
+    tests/test_summarizer.py's job)."""
+
+    @property
+    def dimension(self) -> int:
+        return 8
+
+    @property
+    def model_name(self) -> str:
+        return "fake"
+
+    def encode(self, texts: list[str]) -> np.ndarray:
+        vectors = []
+        for text in texts:
+            rng = np.random.default_rng(abs(hash(text)) % (2**32))
+            vector = rng.random(self.dimension).astype(np.float32)
+            vector /= np.linalg.norm(vector)
+            vectors.append(vector)
+        return np.vstack(vectors)
+
+
+def _wait_until(predicate) -> None:
+    deadline = time.time() + _WAIT_TIMEOUT_S
+    while not predicate() and time.time() < deadline:
+        _app.processEvents()
+        time.sleep(0.01)
 
 
 def _email_hit(**overrides) -> SearchHit:
@@ -186,3 +221,103 @@ def test_context_menu_has_all_expected_actions():
         "Delete",
         "Add to Collection...",
     ]
+
+
+# --- One-Click Context Summary -----------------------------------------
+
+
+def test_no_embedding_provider_hides_summarize_button():
+    hit = _file_hit(semantic_text="Some real document text goes here now.")
+    card = ResultCard(hit, Theme.LIGHT)
+    assert card._summary_button is None
+
+
+def test_image_hit_hides_summarize_button_even_with_provider():
+    hit = _file_hit(file_type="image", semantic_text="A photo of a white dog outside.")
+    card = ResultCard(hit, Theme.LIGHT, embedding_provider=_FakeEmbeddingProvider())
+    assert card._summary_button is None
+
+
+def test_empty_semantic_text_hides_summarize_button():
+    hit = _file_hit(semantic_text="")
+    card = ResultCard(hit, Theme.LIGHT, embedding_provider=_FakeEmbeddingProvider())
+    assert card._summary_button is None
+
+
+def test_non_image_hit_with_text_and_provider_shows_summarize_button():
+    hit = _file_hit(semantic_text="Some real document text goes here now.")
+    card = ResultCard(hit, Theme.LIGHT, embedding_provider=_FakeEmbeddingProvider())
+    assert card._summary_button is not None
+
+
+def test_clicking_summarize_shows_loading_then_bullets():
+    text = (
+        "This is the first sentence of the document. "
+        "This is the second sentence with different words. "
+        "This is the third sentence about the topic. "
+        "This is the fourth sentence also relevant here. "
+        "This is the fifth and final sentence of it all."
+    )
+    hit = _file_hit(semantic_text=text)
+    card = ResultCard(hit, Theme.LIGHT, embedding_provider=_FakeEmbeddingProvider())
+
+    # ResultCard is never .show()n in this unit test, so isVisible() (which
+    # reflects the whole ancestor chain) would always read False regardless
+    # of this section's own visibility flag -- isVisibleTo(card) is the
+    # correct check here (same fix already applied for AddToCollectionDialog).
+    assert not card._summary_section.isVisibleTo(card)
+    card._summary_button.click()
+
+    assert card._summary_section.isVisibleTo(card)
+    assert card._summary_status_label.text() == "Generating summary..."
+
+    _wait_until(lambda: card._summary_bullets is not None)
+
+    assert card._summary_bullets is not None
+    assert len(card._summary_bullets) == 3
+    assert card._summary_status_label.text().count("•") == 3
+
+
+def test_clicking_summarize_again_toggles_instead_of_regenerating():
+    text = (
+        "This is the first sentence of the document. "
+        "This is the second sentence with different words. "
+        "This is the third sentence about the topic. "
+    )
+    hit = _file_hit(semantic_text=text)
+    card = ResultCard(hit, Theme.LIGHT, embedding_provider=_FakeEmbeddingProvider())
+
+    card._summary_button.click()
+    _wait_until(lambda: card._summary_bullets is not None)
+    bullets_after_first_click = card._summary_bullets
+
+    card._summary_button.click()
+    assert not card._summary_section.isVisibleTo(card)
+    assert card._summary_bullets is bullets_after_first_click
+
+    card._summary_button.click()
+    assert card._summary_section.isVisibleTo(card)
+    assert card._summary_bullets is bullets_after_first_click
+
+
+def test_email_hit_summarizes_body_preview_not_metadata_text():
+    card = ResultCard(_email_hit(), Theme.LIGHT, embedding_provider=_FakeEmbeddingProvider())
+    assert card._summary_text == "Please find attached the signed contract."
+
+
+def test_prepare_for_removal_waits_for_in_flight_worker():
+    text = (
+        "This is the first sentence of the document. "
+        "This is the second sentence with different words. "
+        "This is the third sentence about the topic. "
+        "This is the fourth sentence also relevant here. "
+    )
+    hit = _file_hit(semantic_text=text)
+    card = ResultCard(hit, Theme.LIGHT, embedding_provider=_FakeEmbeddingProvider())
+
+    card._summary_button.click()
+    assert card._summary_worker is not None
+
+    card.prepare_for_removal()
+
+    assert card._summary_worker is None

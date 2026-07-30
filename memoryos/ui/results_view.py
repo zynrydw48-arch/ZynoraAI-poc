@@ -17,6 +17,7 @@ from PySide6.QtCore import QPropertyAnimation, Qt, Signal
 from PySide6.QtWidgets import QGraphicsOpacityEffect, QScrollArea, QVBoxLayout, QWidget
 
 from memoryos.database.db import Collection
+from memoryos.embeddings.provider import EmbeddingProvider
 from memoryos.search.engine import SearchHit
 from memoryos.theme import Theme
 from memoryos.ui.filter_empty_state import FilterEmptyState
@@ -50,6 +51,7 @@ class ResultsView(QWidget):
         self._active_collection_id = NO_COLLECTION_FILTER
         self._collection_membership: dict[str, list[Collection]] = {}
         self._collection_names: dict[str, str] = {}
+        self._embedding_provider: EmbeddingProvider | None = None
 
         outer_layout = QVBoxLayout(self)
         outer_layout.setContentsMargins(0, 0, 0, 0)
@@ -112,6 +114,12 @@ class ResultsView(QWidget):
         self._collection_membership = membership
         self._render_filtered()
 
+    def set_embedding_provider(self, embedding_provider: EmbeddingProvider) -> None:
+        """One-Click Context Summary: MainWindow already owns the single
+        shared EmbeddingProvider (expensive to construct) -- threaded down
+        once here rather than each ResultCard building/loading its own."""
+        self._embedding_provider = embedding_provider
+
     def _on_filter_selected(self, label: str) -> None:
         self._active_filter = label
         self._render_filtered()
@@ -163,12 +171,20 @@ class ResultsView(QWidget):
 
     def _render_cards(self, hits: list[SearchHit]) -> None:
         for card in self._cards:
+            # Waits out any in-flight SummaryWorker before the card is
+            # dropped -- otherwise a still-running QThread gets destroyed
+            # out from under itself (the same crash class IndexingWorker's
+            # teardown already guards against).
+            card.prepare_for_removal()
             card.setParent(None)
         self._cards.clear()
 
         for hit in hits:
             card = ResultCard(
-                hit, self._theme, collections=self._collection_membership.get(hit.path, [])
+                hit,
+                self._theme,
+                collections=self._collection_membership.get(hit.path, []),
+                embedding_provider=self._embedding_provider,
             )
             card.open_requested.connect(self.open_requested)
             card.reveal_requested.connect(self.reveal_requested)

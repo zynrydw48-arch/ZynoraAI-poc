@@ -16,12 +16,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from memoryos.background.summary_worker import SummaryWorker
 from memoryos.database.db import Collection
+from memoryos.embeddings.provider import EmbeddingProvider
 from memoryos.search.engine import SearchHit
 from memoryos.theme import Theme
 from memoryos.ui.email_preview_panel import EmailPreviewPanel
 from memoryos.ui.icons import get_icon
-from memoryos.utils.extensions import EMAIL
+from memoryos.utils.extensions import EMAIL, IMAGE
 
 _PATH_ELIDE_MAX_CHARS = 90
 
@@ -35,7 +37,12 @@ class ResultCard(QWidget):
     add_to_collection_requested = Signal(str)  # file path
 
     def __init__(
-        self, hit: SearchHit, theme: Theme, collections: list[Collection] | None = None, parent=None
+        self,
+        hit: SearchHit,
+        theme: Theme,
+        collections: list[Collection] | None = None,
+        embedding_provider: EmbeddingProvider | None = None,
+        parent=None,
     ):
         super().__init__(parent)
         self.setObjectName("resultCard")
@@ -53,6 +60,35 @@ class ResultCard(QWidget):
         self._email_metadata = hit.metadata.get("structural", {}) if self._is_email else {}
         self._email_filename = hit.filename
         self._preview_button: QPushButton | None = None
+
+        # One-Click Context Summary: an email's body preview reads better as
+        # the summary source than its raw semantic_text (which is prefixed
+        # with Subject/Sender/Date for search-ranking purposes, not prose).
+        # Images are skipped entirely -- their "semantic_text" is already a
+        # short caption, not a document with sentences worth extracting from.
+        self._embedding_provider = embedding_provider
+        if self._is_email:
+            self._summary_text = self._email_metadata.get("email_body_preview", "")
+        else:
+            self._summary_text = hit.semantic_text
+        self._can_summarize = (
+            embedding_provider is not None
+            and hit.file_type != IMAGE
+            and bool(self._summary_text.strip())
+        )
+        self._summary_button: QPushButton | None = None
+        self._summary_section: QWidget | None = None
+        self._summary_status_label: QLabel | None = None
+        self._summary_worker: SummaryWorker | None = None
+        self._summary_bullets: list[str] | None = None
+        # Tracked explicitly rather than read back via
+        # self._summary_section.isVisible() -- isVisible() reflects the
+        # whole ancestor chain (always False until the card itself is
+        # actually shown), which would make every toggle click show the
+        # section instead of alternating (same isVisible() pitfall already
+        # hit and fixed for AddToCollectionDialog._creating_new).
+        self._summary_expanded = False
+
         self._build_ui(hit)
         self.set_theme(theme)
 
@@ -128,9 +164,29 @@ class ResultCard(QWidget):
             self._preview_button.setIconSize(QSize(18, 18))
             self._preview_button.clicked.connect(self._show_email_preview)
             buttons.append(self._preview_button)
+        if self._can_summarize:
+            self._summary_button = QPushButton()
+            self._summary_button.setObjectName("iconButton")
+            self._summary_button.setToolTip("Summarize")
+            self._summary_button.setProperty("iconName", "sparkle")
+            self._summary_button.setIconSize(QSize(18, 18))
+            self._summary_button.clicked.connect(self._on_summarize_clicked)
+            buttons.append(self._summary_button)
         for button in buttons:
             actions_row.addWidget(button)
         layout.addLayout(actions_row)
+
+        if self._can_summarize:
+            self._summary_section = QWidget()
+            summary_layout = QVBoxLayout(self._summary_section)
+            summary_layout.setContentsMargins(0, 4, 0, 0)
+            summary_layout.setSpacing(4)
+            self._summary_status_label = QLabel()
+            self._summary_status_label.setObjectName("summaryLabel")
+            self._summary_status_label.setWordWrap(True)
+            summary_layout.addWidget(self._summary_status_label)
+            self._summary_section.setVisible(False)
+            layout.addWidget(self._summary_section)
 
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
@@ -170,6 +226,45 @@ class ResultCard(QWidget):
     def _show_email_preview(self) -> None:
         dialog = EmailPreviewPanel(self._email_metadata, self._email_filename, self._theme, parent=self)
         dialog.exec()
+
+    def _on_summarize_clicked(self) -> None:
+        if self._summary_bullets is not None:
+            # Already generated -- a second click just toggles visibility
+            # instead of re-running the worker.
+            self._summary_expanded = not self._summary_expanded
+            self._summary_section.setVisible(self._summary_expanded)
+            return
+        if self._summary_worker is not None:
+            return  # already generating
+
+        self._summary_expanded = True
+        self._summary_section.setVisible(True)
+        self._summary_status_label.setText("Generating summary...")
+        self._summary_worker = SummaryWorker(self._summary_text, self._embedding_provider, self)
+        self._summary_worker.finished_summary.connect(self._on_summary_finished)
+        self._summary_worker.error.connect(self._on_summary_error)
+        self._summary_worker.start()
+
+    def _on_summary_finished(self, bullets: list[str]) -> None:
+        self._summary_worker = None
+        self._summary_bullets = bullets
+        if bullets:
+            self._summary_status_label.setText("\n".join(f"• {b}" for b in bullets))
+        else:
+            self._summary_status_label.setText("Not enough text to summarize.")
+
+    def _on_summary_error(self, message: str) -> None:
+        self._summary_worker = None
+        self._summary_status_label.setText("Couldn't generate a summary.")
+
+    def prepare_for_removal(self) -> None:
+        """Called by ResultsView before dropping this card so an in-flight
+        SummaryWorker isn't destroyed mid-run -- same QThread-destroyed-
+        while-running crash class MainWindow's _teardown_worker already
+        guards against for IndexingWorker (see memoryos/ui/main_window.py)."""
+        if self._summary_worker is not None:
+            self._summary_worker.wait()
+            self._summary_worker = None
 
     def _make_icon_button(self, icon_name: str, tooltip: str, signal: Signal, danger: bool = False) -> QPushButton:
         button = QPushButton()
@@ -219,6 +314,8 @@ class ResultCard(QWidget):
         ]
         if self._preview_button is not None:
             buttons.append(self._preview_button)
+        if self._summary_button is not None:
+            buttons.append(self._summary_button)
         for button in buttons:
             icon_name = button.property("iconName")
             button.setIcon(get_icon(icon_name, theme))
