@@ -1,15 +1,18 @@
-/* NYXUS AI rebrand: luxury light theme -- keeps V2 Sprint 1's white/cream
-   neutrals (still fits the brand) but replaces every navy-blue accent
-   (#2F4C74/#3E6089) with the brand's gold (#D4AF37 base for filled
-   elements, #B8860B darker amber for borders/hover states that need
-   contrast directly against a white background). Layered on top of the
-   app's QPalette (see memoryos/theme.py) -- QSS here adds shape, spacing,
-   and hover-state polish; any widget without an explicit rule below falls
-   back to the palette's colors. */
+/* Luxury Visual & Motion Polish (Week 2 final phase): Premium Warm
+   Alabaster window (#FAF7F2) with soft-champagne "glass" surfaces --
+   panels/cards/inputs use a translucent rgba(255,253,249,0.82) fill over
+   the solid alabaster window rather than a flat opaque white, faking a
+   frosted-glass edge (QSS has no real backdrop-blur) without an actual blur
+   pass. Borders default to an ultra-thin, low-alpha champagne hairline;
+   :hover/:focus states firm up to a solid gold/amber border. Text moves
+   from Sprint 1's cooler navy-gray to a richer titanium-charcoal. Layered
+   on top of the app's QPalette (see memoryos/theme.py); QSS here adds
+   shape, translucency, and hover-state polish -- any widget without an
+   explicit rule below falls back to the palette's colors. */
 
 QMainWindow, QWidget {
-    background-color: #F8FAFC;
-    color: #0F172A;
+    background-color: #FAF7F2;
+    color: #2B2B2E;
     font-family: "Segoe UI", "Inter", sans-serif;
     font-size: 13px;
 }
@@ -25,12 +28,12 @@ QLabel {
 QLabel#sectionTitle {
     font-size: 17px;
     font-weight: 700;
-    color: #0F172A;
+    color: #2B2B2E;
     padding-bottom: 2px;
 }
 
 QLabel#mutedLabel {
-    color: #64748B;
+    color: #6B6B70;
     font-size: 12px;
 }
 
@@ -47,9 +50,9 @@ QLabel#statusLabelError {
 }
 
 QWidget#sectionPanel {
-    background-color: #FFFFFF;
-    border: 1px solid #E2E8F0;
-    border-radius: 14px;
+    background-color: rgba(255, 253, 249, 0.82);
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    border-radius: 16px;
 }
 
 QLabel#toastBanner {
@@ -62,10 +65,11 @@ QLabel#toastBanner {
 }
 
 QLineEdit {
-    background-color: #FFFFFF;
-    border: 1px solid #E2E8F0;
-    border-radius: 8px;
-    padding: 8px 12px;
+    background-color: rgba(255, 253, 249, 0.82);
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: #2B2B2E;
     selection-background-color: #D4AF37;
 }
 
@@ -74,36 +78,38 @@ QLineEdit:focus {
 }
 
 QPushButton {
-    background-color: #FFFFFF;
-    border: 1px solid #E2E8F0;
-    border-radius: 8px;
-    padding: 8px 18px;
+    background-color: rgba(255, 253, 249, 0.82);
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    border-radius: 10px;
+    padding: 9px 20px;
+    color: #2B2B2E;
 }
 
 QPushButton:hover {
-    background-color: #EEF2F7;
+    background-color: #F3EEE4;
     border: 1px solid #B8860B;
 }
 
 QPushButton:pressed {
-    background-color: #E1E8F0;
+    background-color: #E9E2D3;
 }
 
 QPushButton:disabled {
     color: #B0B8C2;
-    background-color: #F8FAFC;
-    border: 1px solid #E9EDF2;
+    background-color: #FAF7F2;
+    border: 1px solid rgba(212, 175, 55, 0.1);
 }
 
 QPushButton#primaryButton {
     background-color: #D4AF37;
-    color: #0B132B;
+    color: #2B2B2E;
     border: 1px solid #D4AF37;
     font-weight: 600;
 }
 
 QPushButton#primaryButton:hover {
     background-color: #B8860B;
+    color: #FAF7F2;
 }
 
 QPushButton#iconButton {
@@ -114,7 +120,7 @@ QPushButton#iconButton {
 }
 
 QPushButton#iconButton:hover {
-    background-color: #E8EAF2;
+    background-color: #F3EEE4;
 }
 
 QPushButton#dangerIconButton {
@@ -129,9 +135,9 @@ QPushButton#dangerIconButton:hover {
 }
 
 QWidget#resultCard {
-    background-color: #FFFFFF;
-    border: 1px solid #E2E8F0;
-    border-radius: 14px;
+    background-color: rgba(255, 253, 249, 0.82);
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    border-radius: 16px;
 }
 
 QWidget#resultCard:hover {
@@ -147,9 +153,9 @@ QWidget#emptyState {
    QPushButton:hover (hover background), and the primary accent (checked
    tab's gold underline) -- no new colors introduced. */
 QWidget#filterBar {
-    background-color: #FFFFFF;
-    border: 1px solid #E2E8F0;
-    border-radius: 14px;
+    background-color: rgba(255, 253, 249, 0.82);
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    border-radius: 16px;
 }
 
 QPushButton#filterTab {
@@ -158,15 +164,15 @@ QPushButton#filterTab {
     border-bottom: 2px solid transparent;
     border-radius: 8px;
     padding: 8px 16px;
-    color: #64748B;
+    color: #6B6B70;
 }
 
 QPushButton#filterTab:hover {
-    background-color: #EEF2F7;
+    background-color: #F3EEE4;
 }
 
 QPushButton#filterTab:checked {
-    color: #0F172A;
+    color: #2B2B2E;
     border-bottom: 2px solid #D4AF37;
 }
 
@@ -176,11 +182,11 @@ QPushButton#filterTab:checked {
    theme. Tokens reused exactly from QLineEdit/QPushButton (surface/border/
    radius/hover) and QMenu (dropdown list). */
 QComboBox {
-    background-color: #FFFFFF;
-    border: 1px solid #E2E8F0;
-    border-radius: 8px;
+    background-color: rgba(255, 253, 249, 0.82);
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    border-radius: 10px;
     padding: 6px 12px;
-    color: #0F172A;
+    color: #2B2B2E;
 }
 
 QComboBox:hover {
@@ -193,9 +199,9 @@ QComboBox::drop-down {
 
 QComboBox QAbstractItemView {
     background-color: #FFFFFF;
-    border: 1px solid #E2E8F0;
-    color: #0F172A;
-    selection-background-color: #E8EAF2;
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    color: #2B2B2E;
+    selection-background-color: #F3EEE4;
     outline: none;
 }
 
@@ -215,18 +221,18 @@ QLabel#collectionBadge {
    action row -- a left gold accent border marks it as generated content,
    distinct from plain mutedLabel metadata text elsewhere on the card. */
 QLabel#summaryLabel {
-    background-color: #FBF8F1;
-    color: #0F172A;
+    background-color: #F3EEE4;
+    color: #2B2B2E;
     border-left: 2px solid #D4AF37;
-    border-radius: 4px;
-    padding: 8px 10px;
+    border-radius: 6px;
+    padding: 10px 12px;
     font-size: 12px;
 }
 
 QProgressBar {
     border: none;
     border-radius: 6px;
-    background-color: #E2E8F0;
+    background-color: #F3EEE4;
     height: 12px;
     text-align: center;
 }
@@ -248,13 +254,13 @@ QScrollBar:vertical {
 }
 
 QScrollBar::handle:vertical {
-    background: #CBD5E1;
+    background: #E3DCCB;
     border-radius: 5px;
     min-height: 24px;
 }
 
 QScrollBar::handle:vertical:hover {
-    background: #94A3B8;
+    background: #D0C6AC;
 }
 
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
@@ -262,18 +268,18 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
 }
 
 QMenuBar {
-    background-color: #F8FAFC;
-    border-bottom: 1px solid #E2E8F0;
+    background-color: #FAF7F2;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.25);
 }
 
 QMenuBar::item:selected {
-    background-color: #E8EAF2;
+    background-color: #F3EEE4;
     border-radius: 4px;
 }
 
 QMenu {
     background-color: #FFFFFF;
-    border: 1px solid #E2E8F0;
+    border: 1px solid rgba(212, 175, 55, 0.25);
     border-radius: 12px;
     padding: 6px;
 }
@@ -284,7 +290,7 @@ QMenu::item {
 }
 
 QMenu::item:selected {
-    background-color: #E8EAF2;
+    background-color: #F3EEE4;
 }
 
 QListWidget {
@@ -298,10 +304,10 @@ QListWidget::item {
 }
 
 QListWidget::item:hover {
-    background-color: #E8EAF2;
+    background-color: #F3EEE4;
 }
 
 QListWidget::item:selected {
-    background-color: #E8EAF2;
-    color: #0F172A;
+    background-color: #F3EEE4;
+    color: #2B2B2E;
 }

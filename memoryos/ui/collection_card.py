@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from memoryos.database.db import Collection
 from memoryos.theme import Theme
 from memoryos.ui.icons import get_icon
+from memoryos.ui.motion import attach_hover_glow
 
 _MAX_FILES_SHOWN = 8
 
@@ -91,6 +92,7 @@ class CollectionCard(QWidget):
         layout.addLayout(actions_row)
 
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        attach_hover_glow(self)
 
     def _build_file_row(self, path: str) -> QHBoxLayout:
         row = QHBoxLayout()

@@ -20,6 +20,7 @@ from memoryos.database.db import Collection
 from memoryos.theme import Theme
 from memoryos.ui.collection_card import CollectionCard
 from memoryos.ui.icons import get_icon
+from memoryos.ui.motion import attach_discovery_sweep
 
 
 class CollectionsView(QWidget):
@@ -70,6 +71,10 @@ class CollectionsView(QWidget):
         self._scroll_area.setWidget(self._container)
         layout.addWidget(self._scroll_area, 1)
 
+        # Champagne-gold "scanning" sweep shown over the container for the
+        # duration of a Discover Projects run -- see set_discovering() below.
+        self._discovery_sweep = attach_discovery_sweep(self._container)
+
         # Shown instead of the (empty) scroll area when there are no
         # collections at all yet -- either nothing's been created manually
         # or Discover Projects hasn't found anything (yet).
@@ -113,6 +118,9 @@ class CollectionsView(QWidget):
         self._status_label.setVisible(active)
         if active:
             self._status_label.setText("Scanning indexed files for related projects...")
+            self._discovery_sweep.start()
+        else:
+            self._discovery_sweep.stop()
 
     def set_theme(self, theme: Theme) -> None:
         self._new_collection_button.setIcon(get_icon("folder", theme))

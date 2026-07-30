@@ -13,22 +13,21 @@ and for the badge chips ResultCard renders."""
 
 from pathlib import Path
 
-from PySide6.QtCore import QPropertyAnimation, Qt, Signal
-from PySide6.QtWidgets import QGraphicsOpacityEffect, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtCore import QParallelAnimationGroup, Qt, Signal
+from PySide6.QtWidgets import QScrollArea, QVBoxLayout, QWidget
 
 from memoryos.database.db import Collection
 from memoryos.embeddings.provider import EmbeddingProvider
 from memoryos.search.engine import SearchHit
 from memoryos.theme import Theme
 from memoryos.ui.filter_empty_state import FilterEmptyState
+from memoryos.ui.motion import stagger_entrance
 from memoryos.ui.result_card import ResultCard
 from memoryos.ui.search_results_filter_bar import (
     NO_COLLECTION_FILTER,
     SearchResultsFilterBar,
     categorize_extension,
 )
-
-_FADE_DURATION_MS = 180
 
 
 class ResultsView(QWidget):
@@ -44,7 +43,7 @@ class ResultsView(QWidget):
         super().__init__(parent)
         self._theme = Theme.LIGHT
         self._cards: list[ResultCard] = []
-        self._fade_animation: QPropertyAnimation | None = None
+        self._entrance_group: QParallelAnimationGroup | None = None
         self._all_hits: list[SearchHit] = []
         self._current_query = ""
         self._active_filter = "All"
@@ -167,7 +166,7 @@ class ResultsView(QWidget):
                 self._active_filter, self._current_query, active_collection_name
             )
 
-        self._play_fade_in()
+        self._play_entrance()
 
     def _render_cards(self, hits: list[SearchHit]) -> None:
         for card in self._cards:
@@ -201,16 +200,5 @@ class ResultsView(QWidget):
             card.set_theme(theme)
         self._filter_empty_state.set_theme(theme)
 
-    def _play_fade_in(self) -> None:
-        effect = QGraphicsOpacityEffect(self._container)
-        self._container.setGraphicsEffect(effect)
-        animation = QPropertyAnimation(effect, b"opacity", self)
-        animation.setDuration(_FADE_DURATION_MS)
-        animation.setStartValue(0.0)
-        animation.setEndValue(1.0)
-        # Clear the effect once fully opaque -- leaving a QGraphicsOpacityEffect
-        # attached permanently forces Qt to render this subtree through an
-        # offscreen buffer on every repaint, even once opacity is back to 1.0.
-        animation.finished.connect(lambda: self._container.setGraphicsEffect(None))
-        animation.start(QPropertyAnimation.DeletionPolicy.DeleteWhenStopped)
-        self._fade_animation = animation
+    def _play_entrance(self) -> None:
+        self._entrance_group = stagger_entrance(self._cards, self)

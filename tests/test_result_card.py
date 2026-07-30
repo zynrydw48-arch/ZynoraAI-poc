@@ -292,6 +292,11 @@ def test_clicking_summarize_again_toggles_instead_of_regenerating():
     bullets_after_first_click = card._summary_bullets
 
     card._summary_button.click()
+    # Collapse is now animated (~220ms maximumHeight shrink) -- setVisible(False)
+    # only fires on the animation's finished signal, so this needs the same
+    # processEvents()-polling wait already used for the SummaryWorker QThread
+    # above, not an immediate synchronous assertion.
+    _wait_until(lambda: not card._summary_section.isVisibleTo(card))
     assert not card._summary_section.isVisibleTo(card)
     assert card._summary_bullets is bullets_after_first_click
 

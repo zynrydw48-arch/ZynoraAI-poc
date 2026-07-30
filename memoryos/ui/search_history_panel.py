@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 from memoryos.database.db import SearchHistoryEntry
 from memoryos.theme import Theme
 from memoryos.ui.icons import get_icon
+from memoryos.ui.motion import apply_drop_shadow
 
 _ICON_SIZE = 18  # matches MainWindow's other two section-header icons (Index, Search)
 
@@ -67,6 +68,7 @@ class SearchHistoryPanel(QWidget):
         self._entries: list[SearchHistoryEntry] = []
         self.set_theme(Theme.LIGHT)
         self._update_empty_placeholder()
+        apply_drop_shadow(self)
 
     def refresh(self, entries: list[SearchHistoryEntry]) -> None:
         self._entries = entries

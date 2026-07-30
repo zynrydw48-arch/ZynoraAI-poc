@@ -6,7 +6,7 @@ the file in an external mail client. Built fresh each time it's shown, so
 it always reflects the current theme -- no set_theme() update path needed
 the way persistent widgets like ResultCard have."""
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -21,6 +21,7 @@ from memoryos.theme import Theme
 from memoryos.ui.icons import get_icon
 
 _ATTACHMENT_ICON_SIZE = 16
+_FADE_DURATION_MS = 180
 
 
 def _format_size(size_bytes: int) -> str:
@@ -36,7 +37,23 @@ class EmailPreviewPanel(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Email Preview")
         self.setMinimumWidth(480)
+        self._fade_animation: QPropertyAnimation | None = None
         self._build_ui(metadata, filename, theme)
+
+    def showEvent(self, event) -> None:
+        # Scoped-down "card expansion" for this widget -- it's a modal
+        # QDialog.exec(), not an in-place drawer, so a simple opacity
+        # fade-in on first show is the equivalent smooth entrance here.
+        super().showEvent(event)
+        if self._fade_animation is None:
+            self.setWindowOpacity(0.0)
+            animation = QPropertyAnimation(self, b"windowOpacity", self)
+            animation.setDuration(_FADE_DURATION_MS)
+            animation.setStartValue(0.0)
+            animation.setEndValue(1.0)
+            animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+            animation.start(QPropertyAnimation.DeletionPolicy.DeleteWhenStopped)
+            self._fade_animation = animation
 
     def _build_ui(self, metadata: dict, filename: str, theme: Theme) -> None:
         layout = QVBoxLayout(self)

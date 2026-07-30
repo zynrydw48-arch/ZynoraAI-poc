@@ -23,6 +23,7 @@ from memoryos.search.engine import SearchHit
 from memoryos.theme import Theme
 from memoryos.ui.email_preview_panel import EmailPreviewPanel
 from memoryos.ui.icons import get_icon
+from memoryos.ui.motion import animate_height, attach_hover_glow
 from memoryos.utils.extensions import EMAIL, IMAGE
 
 _PATH_ELIDE_MAX_CHARS = 90
@@ -185,10 +186,12 @@ class ResultCard(QWidget):
             self._summary_status_label.setObjectName("summaryLabel")
             self._summary_status_label.setWordWrap(True)
             summary_layout.addWidget(self._summary_status_label)
+            self._summary_section.setMaximumHeight(0)
             self._summary_section.setVisible(False)
             layout.addWidget(self._summary_section)
 
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        attach_hover_glow(self)
 
     def _add_email_summary_rows(self, layout: QVBoxLayout, metadata: dict) -> None:
         subject = metadata.get("email_subject")
@@ -232,7 +235,16 @@ class ResultCard(QWidget):
             # Already generated -- a second click just toggles visibility
             # instead of re-running the worker.
             self._summary_expanded = not self._summary_expanded
-            self._summary_section.setVisible(self._summary_expanded)
+            if self._summary_expanded:
+                self._summary_section.setVisible(True)
+                self._animate_summary_to_content_height()
+            else:
+                animate_height(
+                    self._summary_section,
+                    0,
+                    self,
+                    on_finished=lambda: self._summary_section.setVisible(False),
+                )
             return
         if self._summary_worker is not None:
             return  # already generating
@@ -240,10 +252,14 @@ class ResultCard(QWidget):
         self._summary_expanded = True
         self._summary_section.setVisible(True)
         self._summary_status_label.setText("Generating summary...")
+        self._animate_summary_to_content_height()
         self._summary_worker = SummaryWorker(self._summary_text, self._embedding_provider, self)
         self._summary_worker.finished_summary.connect(self._on_summary_finished)
         self._summary_worker.error.connect(self._on_summary_error)
         self._summary_worker.start()
+
+    def _animate_summary_to_content_height(self) -> None:
+        animate_height(self._summary_section, self._summary_section.sizeHint().height(), self)
 
     def _on_summary_finished(self, bullets: list[str]) -> None:
         self._summary_worker = None
@@ -252,10 +268,15 @@ class ResultCard(QWidget):
             self._summary_status_label.setText("\n".join(f"• {b}" for b in bullets))
         else:
             self._summary_status_label.setText("Not enough text to summarize.")
+        # Loading text -> final bullets is a content-height change too, so
+        # this re-targets the same in-flight (or already-settled) animation
+        # to the new, usually taller, sizeHint.
+        self._animate_summary_to_content_height()
 
     def _on_summary_error(self, message: str) -> None:
         self._summary_worker = None
         self._summary_status_label.setText("Couldn't generate a summary.")
+        self._animate_summary_to_content_height()
 
     def prepare_for_removal(self) -> None:
         """Called by ResultsView before dropping this card so an in-flight

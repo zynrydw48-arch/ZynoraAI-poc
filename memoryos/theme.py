@@ -38,25 +38,26 @@ def resolve_effective_theme(
 
 
 def _dark_palette() -> QPalette:
-    # NYXUS AI rebrand: deep-navy/gold tokens, matching dark.qss's literals --
-    # keeps native dialogs (QMessageBox/QInputDialog/QFileDialog) visually
-    # consistent with the redesigned custom panels instead of showing the
-    # old flat gray. ToolTipBase previously stayed pure white in dark mode
+    # Luxury Visual & Motion Polish: Deep Obsidian/Charcoal Slate tokens,
+    # matching dark.qss's literals -- keeps native dialogs
+    # (QMessageBox/QInputDialog/QFileDialog) visually consistent with the
+    # redesigned custom panels instead of showing the old flat gray or a
+    # stale navy. ToolTipBase previously stayed pure white in dark mode
     # (a latent bug never actually noticed) -- now correctly dark too.
     palette = QPalette()
-    palette.setColor(QPalette.ColorRole.Window, QColor(11, 15, 23))
+    palette.setColor(QPalette.ColorRole.Window, QColor(13, 13, 17))
     palette.setColor(QPalette.ColorRole.WindowText, QColor(242, 239, 233))
-    palette.setColor(QPalette.ColorRole.Base, QColor(8, 11, 20))
-    palette.setColor(QPalette.ColorRole.AlternateBase, QColor(28, 37, 65))
-    palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(11, 19, 43))
+    palette.setColor(QPalette.ColorRole.Base, QColor(22, 22, 30))
+    palette.setColor(QPalette.ColorRole.AlternateBase, QColor(32, 32, 42))
+    palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(22, 22, 30))
     palette.setColor(QPalette.ColorRole.ToolTipText, QColor(242, 239, 233))
     palette.setColor(QPalette.ColorRole.Text, QColor(242, 239, 233))
-    palette.setColor(QPalette.ColorRole.Button, QColor(11, 19, 43))
+    palette.setColor(QPalette.ColorRole.Button, QColor(22, 22, 30))
     palette.setColor(QPalette.ColorRole.ButtonText, QColor(242, 239, 233))
     palette.setColor(QPalette.ColorRole.BrightText, QColor(201, 119, 129))
     palette.setColor(QPalette.ColorRole.Link, QColor(212, 175, 55))
     palette.setColor(QPalette.ColorRole.Highlight, QColor(212, 175, 55))
-    palette.setColor(QPalette.ColorRole.HighlightedText, QColor(11, 19, 43))
+    palette.setColor(QPalette.ColorRole.HighlightedText, QColor(13, 13, 17))
     return palette
 
 

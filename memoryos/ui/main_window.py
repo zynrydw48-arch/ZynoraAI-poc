@@ -43,6 +43,7 @@ from memoryos.ui.add_to_collection_dialog import AddToCollectionDialog
 from memoryos.ui.collections_view import CollectionsView
 from memoryos.ui.empty_state import EmptyState
 from memoryos.ui.icons import get_icon
+from memoryos.ui.motion import apply_drop_shadow
 from memoryos.ui.results_view import ResultsView
 from memoryos.ui.search_history_panel import SearchHistoryPanel
 from memoryos.vision.pipeline import VisionPipeline
@@ -188,6 +189,7 @@ class MainWindow(QMainWindow):
         self._start_button.setIcon(get_icon("play", effective_theme))
         self._start_button.setObjectName("primaryButton")
         self._start_button.clicked.connect(self._on_start_indexing)
+        apply_drop_shadow(self._start_button)
         self._pause_resume_button = QPushButton(" Pause")
         self._pause_resume_button.setIcon(get_icon("pause", effective_theme))
         self._pause_resume_button.setEnabled(False)
@@ -231,10 +233,12 @@ class MainWindow(QMainWindow):
         self._search_line_edit = QLineEdit()
         self._search_line_edit.setPlaceholderText("Describe the file you remember...")
         self._search_line_edit.returnPressed.connect(self._on_search)
+        apply_drop_shadow(self._search_line_edit)
         self._search_button = QPushButton(" Search")
         self._search_button.setIcon(get_icon("search", effective_theme))
         self._search_button.setObjectName("primaryButton")
         self._search_button.clicked.connect(self._on_search)
+        apply_drop_shadow(self._search_button)
         search_row.addWidget(self._search_line_edit, 1)
         search_row.addWidget(self._search_button)
         search_layout.addLayout(search_row)
