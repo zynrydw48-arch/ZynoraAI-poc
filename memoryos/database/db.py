@@ -14,6 +14,7 @@ anywhere -- see the project's Privacy Rule.
 import json
 import sqlite3
 import time
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -69,6 +70,33 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 """
 
+# AI Project Collections (Week 2). Normalized two-table shape -- not a
+# single file_paths blob column on collections -- so add/remove-file is a
+# plain INSERT/DELETE instead of a read-modify-write of a serialized list,
+# and "which collection(s) is this file in" / "does this collection contain
+# path X" are indexed lookups instead of deserializing every collection's
+# blob. No FOREIGN KEY constraint: this codebase never turns SQLite's FK
+# enforcement on (see files/search_history), so collection_files rows are
+# cleaned up explicitly in delete_missing/delete_file_by_path/
+# update_file_path below instead of relying on ON DELETE CASCADE.
+_COLLECTIONS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS collections (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    auto_generated INTEGER NOT NULL DEFAULT 0,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS collection_files (
+    collection_id TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    added_at REAL NOT NULL,
+    PRIMARY KEY (collection_id, file_path)
+);
+"""
+
 # Sprint 2 addition. A plain ALTER TABLE (not a migrations framework -- one
 # additive column doesn't warrant one) guarded by a PRAGMA check so it's a
 # no-op against a database that already has the column, including Sprint 1's
@@ -98,6 +126,17 @@ class SearchHistoryEntry:
     query: str
     timestamp: float
     result_count: int
+
+
+@dataclass
+class Collection:
+    id: str
+    name: str
+    description: str
+    auto_generated: bool
+    created_at: float
+    updated_at: float
+    file_paths: list[str] = field(default_factory=list)
 
 
 def _row_to_record(row: tuple) -> FileRecord:
@@ -133,6 +172,7 @@ class Database:
         self._migrate_perf_log_paused_seconds()
         self._ensure_search_history_table()
         self._ensure_settings_table()
+        self._ensure_collections_tables()
 
         # Sprint 10 (performance pass): embedding_matrix() is called on every
         # search, but the underlying rows only change on a write -- caching
@@ -161,6 +201,10 @@ class Database:
 
     def _ensure_settings_table(self) -> None:
         self._conn.executescript(_SETTINGS_SCHEMA)
+        self._conn.commit()
+
+    def _ensure_collections_tables(self) -> None:
+        self._conn.executescript(_COLLECTIONS_SCHEMA)
         self._conn.commit()
 
     def close(self) -> None:
@@ -271,6 +315,9 @@ class Database:
             self._conn.executemany(
                 "DELETE FROM files WHERE path = ?", [(p,) for p in to_delete]
             )
+            self._conn.executemany(
+                "DELETE FROM collection_files WHERE file_path = ?", [(p,) for p in to_delete]
+            )
             self._conn.commit()
             self._invalidate_cache()
         return len(to_delete)
@@ -285,6 +332,13 @@ class Database:
             "UPDATE files SET path = ?, filename = ? WHERE path = ?",
             (new_path, new_filename, old_path),
         )
+        # Collections reference files by path (see _COLLECTIONS_SCHEMA's
+        # module comment for why there's no FK/cascade to rely on instead) --
+        # a rename must carry membership along, not silently drop it.
+        self._conn.execute(
+            "UPDATE collection_files SET file_path = ? WHERE file_path = ?",
+            (new_path, old_path),
+        )
         self._conn.commit()
         self._invalidate_cache()
 
@@ -293,6 +347,7 @@ class Database:
         reflects the deletion right away, rather than waiting for the next
         indexing run's delete_missing() pass."""
         self._conn.execute("DELETE FROM files WHERE path = ?", (path,))
+        self._conn.execute("DELETE FROM collection_files WHERE file_path = ?", (path,))
         self._conn.commit()
         self._invalidate_cache()
 
@@ -359,3 +414,146 @@ class Database:
 
     def __len__(self) -> int:
         return self._conn.execute("SELECT COUNT(*) FROM files").fetchone()[0]
+
+    # --- AI Project Collections (Week 2) ---------------------------------
+
+    def create_collection(
+        self,
+        name: str,
+        description: str = "",
+        auto_generated: bool = False,
+        file_paths: list[str] | None = None,
+    ) -> Collection:
+        collection_id = str(uuid.uuid4())
+        now = time.time()
+        self._conn.execute(
+            "INSERT INTO collections (id, name, description, auto_generated, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (collection_id, name, description, int(auto_generated), now, now),
+        )
+        file_paths = list(file_paths or [])
+        if file_paths:
+            self._conn.executemany(
+                "INSERT OR IGNORE INTO collection_files (collection_id, file_path, added_at) "
+                "VALUES (?, ?, ?)",
+                [(collection_id, p, now) for p in file_paths],
+            )
+        self._conn.commit()
+        return Collection(
+            id=collection_id,
+            name=name,
+            description=description,
+            auto_generated=auto_generated,
+            created_at=now,
+            updated_at=now,
+            file_paths=file_paths,
+        )
+
+    def get_collection(self, collection_id: str) -> Collection | None:
+        row = self._conn.execute(
+            "SELECT id, name, description, auto_generated, created_at, updated_at "
+            "FROM collections WHERE id = ?",
+            (collection_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return self._row_to_collection(row, self._collection_file_paths(collection_id))
+
+    def list_collections(self) -> list[Collection]:
+        # Ordered by rowid (insertion order), not created_at -- two
+        # collections created in quick succession can land on the same
+        # time.time() value, and rowid is a reliable tiebreaker the way
+        # search_history's ordering already relies on id DESC instead of its
+        # own timestamp column for the same reason.
+        rows = self._conn.execute(
+            "SELECT id, name, description, auto_generated, created_at, updated_at "
+            "FROM collections ORDER BY rowid"
+        ).fetchall()
+        return [
+            self._row_to_collection(row, self._collection_file_paths(row[0])) for row in rows
+        ]
+
+    def _collection_file_paths(self, collection_id: str) -> list[str]:
+        # rowid, not added_at -- every file added in the same
+        # create_collection()/add_files_to_collection() call shares one
+        # added_at timestamp by design, so it can't disambiguate order
+        # within a batch.
+        rows = self._conn.execute(
+            "SELECT file_path FROM collection_files WHERE collection_id = ? ORDER BY rowid",
+            (collection_id,),
+        ).fetchall()
+        return [r[0] for r in rows]
+
+    @staticmethod
+    def _row_to_collection(row: tuple, file_paths: list[str]) -> Collection:
+        id_, name, description, auto_generated, created_at, updated_at = row
+        return Collection(
+            id=id_,
+            name=name,
+            description=description,
+            auto_generated=bool(auto_generated),
+            created_at=created_at,
+            updated_at=updated_at,
+            file_paths=file_paths,
+        )
+
+    def rename_collection(self, collection_id: str, new_name: str) -> None:
+        self._conn.execute(
+            "UPDATE collections SET name = ?, updated_at = ? WHERE id = ?",
+            (new_name, time.time(), collection_id),
+        )
+        self._conn.commit()
+
+    def update_collection_description(self, collection_id: str, description: str) -> None:
+        self._conn.execute(
+            "UPDATE collections SET description = ?, updated_at = ? WHERE id = ?",
+            (description, time.time(), collection_id),
+        )
+        self._conn.commit()
+
+    def delete_collection(self, collection_id: str) -> None:
+        self._conn.execute("DELETE FROM collections WHERE id = ?", (collection_id,))
+        self._conn.execute("DELETE FROM collection_files WHERE collection_id = ?", (collection_id,))
+        self._conn.commit()
+
+    def add_files_to_collection(self, collection_id: str, file_paths: list[str]) -> None:
+        if not file_paths:
+            return
+        now = time.time()
+        self._conn.executemany(
+            "INSERT OR IGNORE INTO collection_files (collection_id, file_path, added_at) "
+            "VALUES (?, ?, ?)",
+            [(collection_id, p, now) for p in file_paths],
+        )
+        self._conn.execute(
+            "UPDATE collections SET updated_at = ? WHERE id = ?", (now, collection_id)
+        )
+        self._conn.commit()
+
+    def remove_files_from_collection(self, collection_id: str, file_paths: list[str]) -> None:
+        if not file_paths:
+            return
+        self._conn.executemany(
+            "DELETE FROM collection_files WHERE collection_id = ? AND file_path = ?",
+            [(collection_id, p) for p in file_paths],
+        )
+        self._conn.execute(
+            "UPDATE collections SET updated_at = ? WHERE id = ?", (time.time(), collection_id)
+        )
+        self._conn.commit()
+
+    def get_collections_for_file(self, file_path: str) -> list[Collection]:
+        """Reverse lookup -- which collection(s) a given file belongs to.
+        Used by the Collection search filter and by file_actions (rename/
+        delete already need to touch collection_files -- see
+        update_file_path/delete_file_by_path above -- this is the read-side
+        equivalent for UI display)."""
+        rows = self._conn.execute(
+            "SELECT c.id, c.name, c.description, c.auto_generated, c.created_at, c.updated_at "
+            "FROM collections c JOIN collection_files cf ON cf.collection_id = c.id "
+            "WHERE cf.file_path = ? ORDER BY c.created_at",
+            (file_path,),
+        ).fetchall()
+        return [
+            self._row_to_collection(row, self._collection_file_paths(row[0])) for row in rows
+        ]
