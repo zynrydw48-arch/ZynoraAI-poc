@@ -36,6 +36,12 @@ from memoryos.extractors.result import ExtractionResult
 MAX_EMBEDDED_IMAGES = 5  # matches pdf_extractor.py's cap
 MAX_ATTACHMENTS_LISTED = 50  # bounds metadata size on emails with huge attachment counts
 
+# Email Search Integration Phase 2: stored separately from the header-prefixed
+# `text` blob (which is what gets embedded/searched) so a UI preview panel can
+# show clean body content without repeating Subject/From/To that are already
+# shown as their own fields.
+BODY_PREVIEW_LENGTH = 500
+
 
 def extract_email(path) -> ExtractionResult:
     path = Path(path)
@@ -135,6 +141,7 @@ def _extract_eml(path: Path) -> ExtractionResult:
             "email_cc": cc,
             "email_date": date,
             "email_attachments": attachments_metadata,
+            "email_body_preview": body[:BODY_PREVIEW_LENGTH],
         },
     )
 
@@ -199,6 +206,7 @@ def _build_result_from_msg_object(msg) -> ExtractionResult:
             "email_cc": cc,
             "email_date": date,
             "email_attachments": attachments_metadata,
+            "email_body_preview": body[:BODY_PREVIEW_LENGTH],
         },
     )
 

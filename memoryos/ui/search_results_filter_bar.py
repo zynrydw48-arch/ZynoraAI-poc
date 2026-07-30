@@ -6,7 +6,7 @@ sprint can connect to without touching this file again."""
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QWidget
 
-TAB_LABELS = ["All", "Images", "Web", "Files", "Notes", "More..."]
+TAB_LABELS = ["All", "Images", "Email", "Web", "Files", "Notes", "More..."]
 
 # Client-side categorization only -- purely a re-render over SearchHits
 # already fetched by the (untouched) search engine, not a statement about
@@ -14,8 +14,9 @@ TAB_LABELS = ["All", "Images", "Web", "Files", "Notes", "More..."]
 # currently indexable at all, so those tabs will legitimately show the
 # empty state for every corpus this app can actually build today.
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".bmp"}
+EMAIL_EXTENSIONS = {".eml", ".msg"}
 WEB_EXTENSIONS = {".html", ".htm", ".url"}
-FILE_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".pptx", ".zip", ".txt", ".csv", ".eml", ".msg"}
+FILE_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".pptx", ".zip", ".txt", ".csv"}
 NOTE_EXTENSIONS = {".md", ".markdown", ".norg", ".org"}
 
 
@@ -28,6 +29,8 @@ def categorize_extension(extension: str) -> str:
         ext = f".{ext}"
     if ext in IMAGE_EXTENSIONS:
         return "Images"
+    if ext in EMAIL_EXTENSIONS:
+        return "Email"
     if ext in WEB_EXTENSIONS:
         return "Web"
     if ext in FILE_EXTENSIONS:

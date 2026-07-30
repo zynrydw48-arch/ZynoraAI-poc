@@ -29,6 +29,9 @@ ICONS=(
   "weather_sunny:Weather%20Sunny:weather_sunny"
   "desktop:Desktop:desktop"
   "dismiss:Dismiss:dismiss"
+  "mail:Mail:mail"
+  "attach:Attach:attach"
+  "eye:Eye:eye"
 )
 
 for entry in "${ICONS[@]}"; do

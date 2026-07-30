@@ -25,6 +25,9 @@ _app = QApplication.instance() or QApplication(sys.argv)
         (".zip", "Files"),
         (".txt", "Files"),
         (".csv", "Files"),
+        (".eml", "Email"),
+        (".msg", "Email"),
+        (".MSG", "Email"),  # case-insensitivity
         (".md", "Notes"),
         (".markdown", "Notes"),
         (".norg", "Notes"),

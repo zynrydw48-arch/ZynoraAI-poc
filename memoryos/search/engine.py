@@ -1,5 +1,5 @@
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from memoryos.database.db import Database
 from memoryos.embeddings.provider import EmbeddingProvider
@@ -49,6 +49,13 @@ class SearchHit:
     path: str
     similarity: float
     reasons: list[str]
+    # Email Search Integration Phase 2: carries the record's file_type/metadata
+    # straight through so the UI (ResultCard, an email preview panel) can
+    # render Subject/Sender/Date/Attachments without a second DB round-trip
+    # per result -- same file_type/metadata shape build_reasons() already
+    # reads (see memoryos/ranking/reasons.py's RankedRecord Protocol).
+    file_type: str = ""
+    metadata: dict = field(default_factory=dict)
 
 
 class SearchEngine:
@@ -79,6 +86,8 @@ class SearchEngine:
                     path=record.path,
                     similarity=similarity,
                     reasons=build_reasons(query, record),
+                    file_type=record.file_type,
+                    metadata=record.metadata,
                 )
             )
         return hits
@@ -114,6 +123,8 @@ class DatabaseSearchEngine:
                     path=record.path,
                     similarity=similarity,
                     reasons=build_reasons(query, record),
+                    file_type=record.file_type,
+                    metadata=record.metadata,
                 )
             )
 

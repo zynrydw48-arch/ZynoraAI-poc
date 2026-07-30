@@ -18,7 +18,9 @@ from PySide6.QtWidgets import (
 
 from memoryos.search.engine import SearchHit
 from memoryos.theme import Theme
+from memoryos.ui.email_preview_panel import EmailPreviewPanel
 from memoryos.ui.icons import get_icon
+from memoryos.utils.extensions import EMAIL
 
 _PATH_ELIDE_MAX_CHARS = 90
 
@@ -37,6 +39,15 @@ class ResultCard(QWidget):
         # default (unlike a bare QWidget() instance) -- this opts back in.
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._path = hit.path
+        self._is_email = hit.file_type == EMAIL
+        # Extractor-specific structured fields (email_subject, page_count for
+        # PDF, etc.) live nested under metadata["structural"] -- see
+        # memoryos/indexing.py's build_semantic_text_and_metadata, which is
+        # what actually populates this shape -- not flattened onto metadata
+        # directly.
+        self._email_metadata = hit.metadata.get("structural", {}) if self._is_email else {}
+        self._email_filename = hit.filename
+        self._preview_button: QPushButton | None = None
         self._build_ui(hit)
         self.set_theme(theme)
 
@@ -65,6 +76,14 @@ class ResultCard(QWidget):
         path_label.setToolTip(hit.path)
         layout.addWidget(path_label)
 
+        # Email Search Integration Phase 2: Subject/Sender/Date/Attachments
+        # surfaced straight from SearchHit.metadata (see
+        # memoryos/search/engine.py) -- additive to the filename/path every
+        # card already shows, not a replacement, so rename/delete tests that
+        # assert on filename_label's text for non-email files stay correct.
+        if self._is_email:
+            self._add_email_summary_rows(layout, self._email_metadata)
+
         if hit.reasons:
             reasons_label = QLabel(" | ".join(hit.reasons))
             reasons_label.setObjectName("mutedLabel")
@@ -82,17 +101,53 @@ class ResultCard(QWidget):
         self._delete_button = self._make_icon_button(
             "delete", "Delete", self.delete_requested, danger=True
         )
-        for button in (
+        buttons = [
             self._open_button,
             self._reveal_button,
             self._copy_button,
             self._rename_button,
             self._delete_button,
-        ):
+        ]
+        if self._is_email:
+            self._preview_button = QPushButton()
+            self._preview_button.setObjectName("iconButton")
+            self._preview_button.setToolTip("Preview email")
+            self._preview_button.setProperty("iconName", "eye")
+            self._preview_button.setIconSize(QSize(18, 18))
+            self._preview_button.clicked.connect(self._show_email_preview)
+            buttons.append(self._preview_button)
+        for button in buttons:
             actions_row.addWidget(button)
         layout.addLayout(actions_row)
 
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+    def _add_email_summary_rows(self, layout: QVBoxLayout, metadata: dict) -> None:
+        subject = metadata.get("email_subject")
+        if subject:
+            subject_label = QLabel(f"Subject: {subject}")
+            subject_label.setWordWrap(True)
+            layout.addWidget(subject_label)
+
+        sender = metadata.get("email_sender")
+        date = metadata.get("email_date")
+        summary_parts = [p for p in (f"From: {sender}" if sender else "", date) if p]
+        if summary_parts:
+            summary_label = QLabel("  |  ".join(summary_parts))
+            summary_label.setObjectName("mutedLabel")
+            summary_label.setWordWrap(True)
+            layout.addWidget(summary_label)
+
+        attachments = metadata.get("email_attachments", [])
+        if attachments:
+            count = len(attachments)
+            attachments_label = QLabel(f"{count} attachment{'s' if count != 1 else ''}")
+            attachments_label.setObjectName("mutedLabel")
+            layout.addWidget(attachments_label)
+
+    def _show_email_preview(self) -> None:
+        dialog = EmailPreviewPanel(self._email_metadata, self._email_filename, self._theme, parent=self)
+        dialog.exec()
 
     def _make_icon_button(self, icon_name: str, tooltip: str, signal: Signal, danger: bool = False) -> QPushButton:
         button = QPushButton()
@@ -120,12 +175,16 @@ class ResultCard(QWidget):
         menu.exec(self.mapToGlobal(position))
 
     def set_theme(self, theme: Theme) -> None:
-        for button in (
+        self._theme = theme
+        buttons = [
             self._open_button,
             self._reveal_button,
             self._copy_button,
             self._rename_button,
             self._delete_button,
-        ):
+        ]
+        if self._preview_button is not None:
+            buttons.append(self._preview_button)
+        for button in buttons:
             icon_name = button.property("iconName")
             button.setIcon(get_icon(icon_name, theme))
